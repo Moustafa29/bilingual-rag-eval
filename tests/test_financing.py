@@ -67,6 +67,44 @@ def test_apportionment_is_not_an_appropriation():
     assert extract_appropriation(UNMISET_APPORTION) is None
 
 
+SUPPORT_ACCOUNT_2001 = (
+    "24. Decides also to appropriate to the Special Account for the Mission the amount of 8,260,509 dollars gross "
+    "(7,249,409 dollars net) for the support account for peacekeeping operations and the amount of 862,915 dollars gross "
+    "(774,893 dollars net) for the United Nations Logistics Base for the period from 1 July 2001 to 30 June 2002, to be "
+    "apportioned among Member States"
+)
+UNMIBH_PARTIAL_1996 = (
+    "7. Decides to appropriate the amount of 75,619,800 dollars gross (72,225,600 dollars net) for the maintenance of the "
+    "Mission for the period from 1 July 1996 to 30 June 1997, inclusive of the amount of 1,918,300 dollars for the support "
+    "account for peacekeeping operations, in addition to the amount of 75,619,800 dollars gross (72,225,600 dollars net) "
+    "already appropriated for the period from 1 July to 31 December 1996 under the provisions of General"
+)
+UNFICYP_1998 = (
+    "11. Decides to appropriate to the Special Account for the United Nations Peacekeeping Force in Cyprus an amount of "
+    "45,276,160 dollars gross (43,536,860 dollars net) for the maintenance of the Force for the period from 1 July 1998 to "
+    "30 June 1999, inclusive of an amount of 2,267,160 dollars for the support account for peacekeeping operations;"
+)
+
+
+def test_support_account_share_is_not_the_missions_appropriation():
+    # Second probe sample: 8,260,509 dollars is a support-account share, and "the Mission" names no mission.
+    record = extract_appropriation(SUPPORT_ACCOUNT_2001)
+    assert record["kind"] == "support_account"
+    assert record["mission_in_paragraph"] is None
+
+
+def test_partial_year_appropriation_is_labelled():
+    # Second probe sample: the second half of a year, in addition to an amount already appropriated.
+    assert extract_appropriation(UNMIBH_PARTIAL_1996)["kind"] == "partial"
+
+
+def test_support_account_mentioned_only_inside_the_inclusive_clause_stays_an_appropriation():
+    record = extract_appropriation(UNFICYP_1998)
+    assert record["kind"] == "appropriation"
+    assert record["amount_usd"] == 45_276_160
+    assert record["mission_in_paragraph"] == "United Nations Peacekeeping Force in Cyprus"
+
+
 def test_additional_appropriation_is_labelled():
     text = UNDOF_2001.replace("the amount of 35,689,968", "an additional amount of 35,689,968")
     assert extract_appropriation(text)["kind"] == "additional"

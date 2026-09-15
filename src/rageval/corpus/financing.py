@@ -92,14 +92,31 @@ def extract_appropriation(paragraph: str) -> dict | None:
     if not period:
         return None
     main_clause = paragraph[verb.start() : period.end()]
-    kind = "additional" if re.search(r"\badditional\b", main_clause) else "reduction" if "reduc" in main_clause else "appropriation"
+    between = paragraph[amount.end() : period.start()]
+    if re.search(r"\badditional\b", main_clause):
+        kind = "additional"
+    elif "reduc" in main_clause:
+        kind = "reduction"
+    elif re.search(r"\bsupport account\b|\bLogistics Base\b", between):
+        # "the amount of 8,260,509 dollars ... for the support account ... for the period": a share of
+        # the peacekeeping support account, not the mission's own appropriation (second probe sample).
+        kind = "support_account"
+    elif re.search(r"\bin addition to\b.{0,300}?\balready appropriated\b", paragraph[period.end() :]):
+        # "... for the period from 1 July 1996 to 30 June 1997, ... in addition to the amount of ...
+        # already appropriated for the period from 1 July to 31 December 1996": only part of the
+        # year's money, not comparable with a full-period appropriation (second probe sample).
+        kind = "partial"
+    else:
+        kind = "appropriation"
     mission = _PARAGRAPH_MISSION.search(paragraph, 0, amount.end() + 1)
+    name = _trim(mission.group(1)) if mission else ""
     return {
         "amount_text": amount.group("num"),
         "amount_usd": parse_amount(amount.group("num")),
         "period": f"{period.group(1)} - {period.group(2)}",
         "kind": kind,
-        "mission_in_paragraph": _trim(mission.group(1)) if mission else None,
+        # "Special Account for the Mission" names no mission; fall back to the document's full name.
+        "mission_in_paragraph": name if len(name.split()) >= 3 else None,
     }
 
 

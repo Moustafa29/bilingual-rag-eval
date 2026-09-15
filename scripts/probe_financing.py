@@ -16,12 +16,19 @@ Definitions
 Gate: at least 60 usable pairs -> build comparison questions. Fewer -> no multi-hop set from this
 corpus. The loose count (all same-period combinations) is reported but does not decide.
 
-First run (0f18ff4) reported 113 usable pairs, but its extraction was wrong in 3 of 10 sampled records
-(amounts written in words, an apportionment read as an appropriation, truncated mission titles). This
-version corrects the measurement; the gate is unchanged. A seeded sample of 30 records is written to
-data/probe/sample_records.md for manual checking.
+Measurement history (the gate never changed):
+- Run 1 (0f18ff4): 113 usable pairs, but 3 of 10 sampled records were wrong (amounts written in words,
+  an apportionment read as an appropriation, truncated mission titles).
+- Run 2 (7c046c1): 108 usable pairs; 5 of 30 sampled records were wrong or not comparable (two
+  support-account shares, one of them named only "Mission"; three partial-year appropriations).
+- Run 3 (this version): support-account shares and partial-year appropriations are excluded, and a
+  mission name taken from a paragraph needs 3+ words.
 
-    python scripts/probe_financing.py --config configs/pilot.yaml
+Acceptance of the count, fixed before run 3: a fresh seeded sample of 30 records (--sample-seed, not
+the seed used for run 2) must contain at most 1 wrong or non-comparable record. Otherwise the count is
+not trusted, whatever it is.
+
+    python scripts/probe_financing.py --config configs/pilot.yaml --sample-seed 7
 """
 
 from __future__ import annotations
@@ -57,6 +64,7 @@ def paragraphs(doc) -> list[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/pilot.yaml")
+    parser.add_argument("--sample-seed", type=int, default=20260915)
     args = parser.parse_args()
     cfg = load_config(args.config)
     u = cfg["unpc"]
@@ -128,11 +136,11 @@ def main() -> None:
     out = data / "probe"
     ordered = sorted(records.values(), key=lambda r: (r["period"], r["mission_key"]))
     write_jsonl(out / "financing_records.jsonl", ordered)
-    sample = random.Random(20260915).sample(ordered, min(30, len(ordered)))
-    lines = ["# Seeded sample of 30 appropriation records (manual check)", ""]
+    sample = random.Random(args.sample_seed).sample(ordered, min(30, len(ordered)))
+    lines = [f"# Seeded sample of 30 appropriation records, seed {args.sample_seed} (manual check)", ""]
     for r in sample:
         lines += [f"## {r['mission']} | {r['period']} | {r['amount_text']} = {r['amount_usd']:,} | {r['doc_id']}", f"- EN: {r['english'][:450]}", f"- AR: {r['arabic'][:450]}", ""]
-    (out / "sample_records.md").write_text("\n".join(lines), encoding="utf-8")
+    (out / f"sample_records_seed{args.sample_seed}.md").write_text("\n".join(lines), encoding="utf-8")
 
     summary = {
         "ga_resolutions_scanned": len(resolutions),
