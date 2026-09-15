@@ -143,14 +143,14 @@ seed is fixed, so identical rankings must give identical intervals.
 The question set is incomplete: single-hop and numeric questions only, with no multi-hop questions
 (`docs/corpus.md` §3). The tables below cover only what that set supports.
 
-**Question set used here:** the one verified by `qwen/qwen3.6-27b`, the verifier before its
-withdrawal. Every candidate is being re-verified with `qwen/qwen3.8-27b` (`docs/corpus.md` §3), and
-these numbers will be recomputed on the re-verified set.
+**Question set used here:** re-verified with `qwen/qwen3.8-27b` after the original verifier was
+withdrawn (`docs/corpus.md` §3). It has 82 single-hop questions (of a target of 100) and 40
+numeric questions. Single-hop generation continues, so the numeric subset below can still grow.
 
 ### What correcting the Arabic digit groups is worth: BM25
 
 `unpc` has the reversed Arabic digit groups corrected; `unpc_uncorrected` is the text as
-distributed (`docs/corpus.md`, second result). Measured on the 41 questions whose English question
+distributed (`docs/corpus.md`, second result). Measured on the 43 questions whose English question
 or answer contains a grouped number:
 
 | Config | Δ recall@5, corrected − uncorrected, ar-ar | Same, en-en (sanity check) |
@@ -165,8 +165,10 @@ statistical power.**
   tokens.
 - **Token check:** in 1,570 of the 1,604 corrected chunks (1,575 with light stemming), the
   corrected and uncorrected Arabic have identical token multisets.
-- **Ranking check:** every top-100 ranking is identical across the two corpora, for all 53
-  questions, all three analyzers and both languages.
+- **Ranking check:** when first measured on the original question set, every top-100 ranking was
+  identical across the two corpora for all 53 questions, all three analyzers and both languages. On
+  the re-verified set, every paired difference for the 43 numeric questions is exactly zero, with
+  0 / 0 one-sided hits.
 - **The 34 exceptions** are a separate, minor text defect: a number glued to the preceding Arabic
   word without a space (`و440`, `قدرها311`), where reversing the groups changes which digits are
   attached.
@@ -177,28 +179,31 @@ statistical power.**
 - **Phase 4 answer scoring.** An exact-match check of the answer "50,000" against a passage span
   `000 50` fails.
 
-### BM25 on the numeric questions (n = 41)
+### BM25 on the numeric questions (n = 43)
 
 | Config | Query–doc | recall@1 | recall@5 | recall@10 | recall@20 | MRR@10 | nDCG@10 |
 |---|---|---|---|---|---|---|---|
-| bm25-raw | en-en | 0.659 | 0.878 | 0.927 | 0.951 | 0.756 | 0.798 |
-| bm25-raw | ar-ar | 0.439 | 0.585 | 0.610 | 0.659 | 0.492 | 0.521 |
-| bm25-norm | en-en | 0.659 | 0.878 | 0.927 | 0.951 | 0.756 | 0.798 |
-| bm25-norm | ar-ar | 0.463 | 0.610 | 0.634 | 0.683 | 0.519 | 0.547 |
-| bm25-light | en-en | 0.610 | 0.829 | 0.854 | 0.878 | 0.693 | 0.733 |
-| bm25-light | ar-ar | 0.488 | 0.610 | 0.732 | 0.805 | 0.548 | 0.590 |
+| bm25-raw | en-en | 0.651 | 0.860 | 0.907 | 0.930 | 0.744 | 0.784 |
+| bm25-raw | ar-ar | 0.465 | 0.605 | 0.628 | 0.674 | 0.516 | 0.543 |
+| bm25-norm | en-en | 0.651 | 0.860 | 0.907 | 0.930 | 0.744 | 0.784 |
+| bm25-norm | ar-ar | 0.488 | 0.628 | 0.651 | 0.698 | 0.541 | 0.568 |
+| bm25-light | en-en | 0.605 | 0.814 | 0.837 | 0.860 | 0.684 | 0.722 |
+| bm25-light | ar-ar | 0.512 | 0.628 | 0.744 | 0.814 | 0.569 | 0.609 |
 
 | Config | Δ recall@5, EN − AR [95% CI] | Δ MRR@10 [95% CI] | hit@5 EN-only / AR-only | McNemar p |
 |---|---|---|---|---|
-| bm25-raw | +0.293 [+0.122, +0.463] | +0.264 [+0.088, +0.434] | 14 / 2 | 0.004 |
-| bm25-norm | +0.268 [+0.098, +0.439] | +0.238 [+0.057, +0.411] | 13 / 2 | 0.007 |
-| bm25-light | +0.220 [+0.049, +0.390] | +0.146 [−0.034, +0.327] | 12 / 3 | 0.035 |
+| bm25-raw | +0.256 [+0.093, +0.419] | +0.229 [+0.054, +0.402] | 14 / 3 | 0.013 |
+| bm25-norm | +0.233 [+0.070, +0.395] | +0.203 [+0.026, +0.380] | 13 / 3 | 0.021 |
+| bm25-light | +0.186 [+0.000, +0.349] | +0.116 [−0.065, +0.296] | 12 / 4 | 0.077 |
 
 **Limits of this table:**
-- **Sample.** 41 questions, all drawn from chunks containing large numbers, so it is not a
-  sample of the corpus. The intervals are wide.
+- **Sample.** 43 questions, all drawn from chunks containing large numbers, so it is not a sample of
+  the corpus. The intervals are wide.
+- **Unstable at this size.** On the earlier 41-question set, the stemmed recall@5 gap was +0.220
+  with McNemar p = 0.035. Two added questions moved it to +0.186 with p = 0.077. A result that shifts
+  that much when two questions are added should not be read beyond its direction.
 - **Consistent with XQuAD in direction.** Light stemming narrows the Arabic gap here too: the MRR
-  gap falls from +0.264 to +0.146, and its interval now includes zero.
-- **English stemming hurts.** Light stemming lowers English recall@5 on these questions (0.878 →
-  0.829), which XQuAD did not show.
+  gap falls from +0.229 to +0.116, and its interval includes zero.
+- **English stemming hurts.** Light stemming lowers English recall@5 on these questions (0.860 →
+  0.814), which XQuAD did not show.
 - **Not a headline.** The corpus-wide gap needs the full single-hop set.

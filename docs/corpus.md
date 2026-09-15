@@ -56,6 +56,10 @@ artifact, and it would be indistinguishable from a real language effect in the r
   Arabic text alone.
 - **Formatting preserved:** digit script (Western or Arabic-Indic) and separator characters are
   kept; only the group order changes.
+- **Known gap: decimal amounts.** The correction matches whole digit groups, so a decimal amount
+  stays reversed. English "$5,538.6 million" appears in the Arabic passage as `538.6 5 ملايين دولار`.
+  It surfaced as a rejected question (§3, evaluation fragility part 3). How many such amounts remain
+  has not been counted.
 - **Scale:** 3,600 corrections in 1,604 chunks.
   - Corrections exceed the reversed count by 2 because a number written once in English can
     appear more than once in its Arabic chunk.
@@ -274,10 +278,9 @@ state the same fact (`prompts/judge_equivalence.txt`). F1 is still recorded on e
 (`answer_f1_vs_translation`) but no longer decides.
 - **Validation on the known case:** the judgement rejects the Habitat answer. The prompt's
   examples do not include it.
-- **Its rejections, inspected: 7 of 10 correct.** Three reject a correct answer qualified by "more
-  than" (part 3 below). An earlier version of this section said all 5 inspected rejections were
-  correct. That held only for the 5 checked at the time: the numeric group added rejections that had
-  not been inspected.
+- **Its rejections, inspected: 8 of 13 correct.** Five reject an answer stating the same fact (part 3
+  below). An earlier version of this section said all 5 inspected rejections were correct. That held
+  only for the 5 checked at the time: later runs added rejections that had not been inspected.
 - **Not yet measured at scale:** the human audit of 100 judgement decisions.
 
 #### 2. Swapping the verifier model changed one verdict in 68
@@ -326,18 +329,29 @@ moved anything.
 
 #### 3. The same-answer judgement rejects some correct answers
 
-All 10 same-answer rejections made so far have been inspected by hand.
+All 13 same-answer rejections made so far (after the single-hop rebuild with `qwen3.8-27b`) have
+been inspected by hand.
 
 | Verdict | Count | Cases |
 |---|---|---|
-| Correct rejection | 7 | the Habitat Agenda vs the UN Human Settlements Programme; a section letter "جيم" (C) mistranslated as the name "Jim"; three bridge answers where the verifier found a different fact; "150 000" where the passage states a range, "150,000 to 200,000"; the misread subcommittee name |
-| **Wrongly rejected** | **3** | "75 000" vs "over 75,000"; "2 500" vs "more than 2,500 languages"; "5,000" vs ما يزيد على 5 000 مرشح ("more than 5,000 candidates") |
+| Correct rejection | 8 | the Habitat Agenda vs the UN Human Settlements Programme; a section letter "جيم" (C) mistranslated as the name "Jim"; three bridge answers where the verifier found a different fact; "150 000" where the passage states a range, "150,000 to 200,000"; the misread subcommittee name; "24/11" vs "42/11", two different resolution numbers |
+| **Same fact, rejected** | **5** | see the three patterns below |
 
-- **One shared pattern:** all three wrong rejections treat a lower-bound qualifier ("over", "more
-  than", ما يزيد على) as a different fact. The judgement prompt says extra qualifying words do not
-  make answers different. Both verifier models made the same three calls.
+The five same-fact rejections fall into three patterns:
+
+| Pattern | Count | Cases |
+|---|---|---|
+| A lower-bound qualifier treated as a different fact | 3 | "75 000" vs "over 75,000"; "2 500" vs "more than 2,500 languages"; "5,000" vs ما يزيد على 5 000 مرشح ("more than 5,000 candidates") |
+| A context-implied detail treated as different | 1 | "before the end of 2005" vs قبل نهاية العام ("before the end of the year"), in a paragraph that has just said "during 2005" |
+| A number still reversed in the Arabic passage | 1 | "$5,538.6 million" vs `538.6 5 ملايين دولار`, a decimal amount the digit-group correction does not handle (see the second result) |
+
+- **Against the prompt:** the judgement prompt says extra qualifying words do not make answers
+  different. The qualifier pattern appeared with both verifier models on every case replayed.
 - **Direction of the error:** wrong rejections lose valid questions; they never admit a wrong answer.
   The numeric group still reached 40, but it is biased against facts stated as "more than N".
+- **The reversed-number case cuts both ways.** The fact matched, but accepting it would have stored
+  a garbled Arabic gold answer, so the rejection kept corrupted text out of the set, for the wrong
+  reason.
 - **Not fixed:** changing the prompt would change the question set again and need another
   re-verification. The error is documented, and the human audit of 100 judgement decisions measures
   its rate on a larger sample.
@@ -538,9 +552,19 @@ Responses are cached, so the full run reuses these 40 candidates at no cost.
 
 ### Results (`python scripts/build_questions.py`)
 
-| | Single-hop | Bridge |
+Built with generator `openai/gpt-oss-120b` and verifier `qwen/qwen3.8-27b`. Multi-hop kinds are
+covered under "three measured attempts" above.
+
+| | Single-hop | Numeric |
 |---|---|---|
-| Candidates tried | | |
-| Accepted | | |
-| Accepted en→ar / ar→en | | |
-| Largest rejection reason | | |
+| Candidates tried | 111 | 54 |
+| Accepted | **82** (target 100; stopped at the daily token limit, resumable) | **40** (target reached) |
+| Accepted en→ar / ar→en | 45 / 37 | 20 / 20 |
+| Rejections | context reference 8, not answerable after translation 7, answers state different facts 5, generator skipped 4, verified answer not in passage 3, evidence not in passage 2 | context reference 6, answers state different facts 4, not answerable after translation 2, verified answer not in passage 1, evidence not in passage 1 |
+
+- **The numeric group is identical to its earlier build** with the withdrawn verifier: re-verification
+  changed no verdict in it.
+- **Audit flags behave as intended:**
+  - Smoke-run #5 ("according to the mentioned decision") is now rejected by the context filter.
+  - #10 ("How many topics were discussed at the meeting?") is still accepted, a filter miss.
+  - Both appear in the audit export.
