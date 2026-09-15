@@ -74,10 +74,45 @@ questions:
 
 generation:
   k: 5   # passages given to the answering model; Recall@5 is the retrieval ceiling for generation
-  # answerer and judge are deliberately unset: choosing them is a pending decision (free or local
-  # answerer; stronger paid judge within the $20 cap, cost quoted before any paid run).
-  # answerer: {base_url: ..., api_key_env: ..., model: ..., params: {...}}
-  # judge:    {base_url: ..., api_key_env: ..., model: ..., params: {...}}
+  # Answerer: gpt-oss-20b. Same family as the question generator (gpt-oss-120b) but a different, smaller
+  # model; the family effect is measured, not assumed away (contamination_answerer below).
+  answerer:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: openai/gpt-oss-20b
+    params:
+      temperature: 0
+      seed: 20260915
+      reasoning_effort: low
+      include_reasoning: false
+      max_completion_tokens: 1024
+  # Contamination check: a seeded subset answered by a model outside the gpt-oss family, in the oracle
+  # condition (both models see the same gold passages). A marked gpt-oss advantage is the family effect.
+  contamination_answerer:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: qwen/qwen3.8-27b
+    params:
+      temperature: 0
+      seed: 20260915
+      reasoning_effort: none
+      reasoning_format: hidden
+      max_completion_tokens: 256
+  contamination_sample: 60   # questions, each answered in both languages
+  # Judge: qwen3.8-27b, free, and the same model as the question verifier. Stated plainly in the
+  # write-up; the human audit of 100 judge decisions is the check on it. The $20 cap is held in reserve
+  # for a paid judge on a validation subset, only if that audit shows this judge is unreliable.
+  judge:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: qwen/qwen3.8-27b
+    params:
+      temperature: 0
+      seed: 20260915
+      reasoning_effort: none
+      reasoning_format: hidden
+      max_completion_tokens: 128
+      response_format: {type: json_object}
 
 audit:
   n: 100
