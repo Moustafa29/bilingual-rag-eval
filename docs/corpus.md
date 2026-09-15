@@ -316,6 +316,40 @@ hybrid retrieval and reranking were expected to separate from dense-only retriev
 reported from this question set. Phase 5's query-decomposition test also needs another source of
 multi-subject questions.
 
+### Third multi-hop attempt: comparisons from mission-financing resolutions (probe, not built)
+
+The two failures above are properties of the corpus: citations are metadata-only, and subject terms
+are topical rather than parallel. General Assembly resolutions titled "Financing of the <mission>"
+are parallel by construction. Each appropriates an amount for a stated budget period, so two
+missions' appropriations for the same period give a comparison question with a deterministic
+answer.
+
+A probe with no LLM calls (`scripts/probe_financing.py`) counted usable pairs before anything was
+built. Both decision rules were committed before the run they judged:
+- **Gate:** at least 60 usable pairs. A usable pair is two missions with the identical budget
+  period, each amount confirmed in the Arabic resolution, and each record used in at most one pair.
+- **Acceptance** (added for run 3): a fresh seeded sample of 30 records may contain at most 1 wrong
+  or non-comparable record.
+
+| Run | Commit | Usable pairs | Sampled records wrong or not comparable | Errors found |
+|---|---|---|---|---|
+| 1 | `0f18ff4` | 113 | 3 of 10 | amounts in words skipped for a quoted figure; an apportionment read as an appropriation; truncated mission titles |
+| 2 | `7c046c1` | 108 | 5 of 30 | support-account shares (one named only "Mission"); partial-year appropriations ("in addition to … already appropriated") |
+| 3 | `297cf49` | **101** | **2 of 30** (fresh seed) | a liquidation budget for several combined forces; a support-account share worded "comprising … for the support account" after the period |
+
+**Outcome: not built.** Run 3 passes the pair gate but fails the acceptance criterion: 2 of 30 sampled
+records against at most 1. Each remaining error type could be patched with another rule. But
+patching extraction after each sample until one passes is what a fixed acceptance rule exists to
+prevent, so the probe stops at run 3.
+
+**What it shows.**
+- **Parallel structure isn't enough.** Even template-parallel UN documents don't yield clean
+  deterministic comparisons without per-template rules: liquidation budgets, support-account
+  shares, partial years, apportionments, amounts written in words.
+- **The data exists, but checking it has a cost.** About 6–7% of extracted records remained wrong
+  after three rounds of measurement fixes. For a question built from two records, that is roughly
+  1 in 8 questions with a questionable gold answer.
+
 ### Numeric group (40 questions)
 
 Single-hop questions answered by a grouped number, drawn from chunks where the Arabic digit groups

@@ -617,6 +617,7 @@ beyond that is flagged as a scale-up decision, not done by default.
 | Answer acceptance by token F1 ≥ 0.5 | Verifier judgement of whether two answers state the same fact; F1 recorded only | F1 accepted a wrong answer (the Habitat Agenda vs. the UN Human Settlements Programme, F1 0.75). See `docs/corpus.md` §3. |
 | Multi-hop: bridge and comparison questions | **None in the pilot.** Citation bridges 0/20 (three runs), comparison questions 0/20; both stopped at a pre-set threshold of 5/20 | Citation links exist only in metadata and describe cited documents by title; shared subject terms give topical, not parallel, pairs. Documented as negative results. |
 | Numeric answers occur at their natural rate | A 40-question numeric group from chunks with corrected Arabic numbers | Needed for a confidence interval on what the digit-group correction is worth. |
+| Third multi-hop source: comparisons from mission-financing resolutions | Probed, **not built**: 101 usable pairs (gate 60) but 2 of 30 sampled records wrong or not comparable (criterion ≤ 1), after three measurement fixes | Both rules were committed before the run they judged; the probe stopped rather than patch extraction until a sample passed. See `docs/corpus.md` §3. |
 
 **What `multilingual-e5-large` would likely change** (expectation, not measured):
 e5-large has ~560M parameters against base's ~280M, with the same 512-token limit and
