@@ -21,7 +21,7 @@ from pathlib import Path
 from rageval.corpus.symbols import doc_key
 from rageval.io import load_config, load_dotenv, read_jsonl, write_jsonl
 from rageval.llm.client import ChatClient, DiskCache
-from rageval.questions.builder import Prompts, QuestionBuilder, run_build
+from rageval.questions.builder import BuildResult, Prompts, QuestionBuilder, replace_kinds, run_build
 from rageval.questions.dedup import near_duplicate_groups
 from rageval.questions.sampling import bridge_candidates, group_by_doc, single_candidates
 
@@ -79,51 +79,69 @@ def main() -> None:
     verifier = ChatClient.from_config(q["verifier"], cache, ledger)
     builder = QuestionBuilder(generator, verifier, Prompts(prompts_dir), q["answer_f1_threshold"])
 
-    results = []
+    ran: dict[str, BuildResult] = {}
     if args.kind in ("single", "all"):
-        results.append(run_build("single", builder.single, singles(), q["n_single"], q["max_candidates_single"]))
-    daily_limit = any(r.stopped and r.stopped.startswith("daily limit") for r in results)
+        ran["single"] = run_build("single", builder.single, singles(), q["n_single"], q["max_candidates_single"])
+    daily_limit = any(r.stopped and r.stopped.startswith("daily limit") for r in ran.values())
     if args.kind in ("bridge", "all") and not daily_limit:
-        results.append(
-            run_build("bridge", lambda cand, d: builder.bridge(*cand, d), bridges(), q["n_bridge"], q["max_candidates_bridge"])
+        ran["bridge"] = run_build(
+            "bridge", lambda cand, d: builder.bridge(*cand, d), bridges(), q["n_bridge"], q["max_candidates_bridge"]
         )
 
-    records = [r for result in results for r in result.accepted]
-    gold = {cid for r in records for cid in r["gold_chunks"]}
+    new_records = [r for result in ran.values() for r in result.accepted]
+    gold = {cid for r in new_records for cid in r["gold_chunks"]}
     groups = near_duplicate_groups(gold, by_id, q["dedup_jaccard"], q["shingle_size"])
     version = prompts_version(prompts_dir)
     counters = Counter()
-    for r in records:
+    for r in new_records:
         counters[r["type"]] += 1
         r["qid"] = f"unpc-{r['type']}-{counters[r['type']]:04d}"
         r["relevant_groups"] = [groups[cid] for cid in r["gold_chunks"]]
         r["prompts_version"] = version
         r["models"] = {"generator": generator.model, "verifier": verifier.model}
-    records = [{"qid": r.pop("qid"), **r} for r in records]
+    new_records = [{"qid": r.pop("qid"), **r} for r in new_records]
 
+    # A run of one kind must not erase the other kind's results: the first smoke runs did exactly
+    # that, when the bridge run overwrote the 14 accepted single-hop questions.
     out = data / "questions"
-    write_jsonl(out / "unpc_pilot.jsonl", records)
-    outcomes = [o for result in results for o in result.outcomes]
-    write_jsonl(out / "unpc_pilot_attempts.jsonl", outcomes)
-    funnel = {
-        kind: {
-            "attempted": sum(o["kind"] == kind for o in outcomes),
-            "by_status": dict(Counter(o["status"] for o in outcomes if o["kind"] == kind).most_common()),
-            "accepted_by_direction": dict(Counter(r["direction"] for r in records if r["type"] == kind)),
+    questions_path = out / "unpc_pilot.jsonl"
+    attempts_path = out / "unpc_pilot_attempts.jsonl"
+    funnel_path = out / "unpc_pilot_funnel.json"
+    run_kinds = set(ran)
+    records = replace_kinds(read_jsonl(questions_path) if questions_path.exists() else [], new_records, run_kinds, "type")
+    outcomes = replace_kinds(
+        read_jsonl(attempts_path) if attempts_path.exists() else [],
+        [o for result in ran.values() for o in result.outcomes],
+        run_kinds,
+        "kind",
+    )
+    write_jsonl(questions_path, records)
+    write_jsonl(attempts_path, outcomes)
+
+    previous = json.loads(funnel_path.read_text(encoding="utf-8")).get("funnel", {}) if funnel_path.exists() else {}
+    funnel = {}
+    for kind in ("single", "bridge"):
+        if kind not in ran:
+            if kind in previous:
+                funnel[kind] = previous[kind]
+            continue
+        result = ran[kind]
+        funnel[kind] = {
+            "attempted": len(result.outcomes),
+            "by_status": dict(Counter(o["status"] for o in result.outcomes).most_common()),
+            "accepted_by_direction": dict(Counter(r["direction"] for r in result.accepted)),
+            "stopped": result.stopped,
+            "network_tokens": dict(result.usage),
+            "prompts_version": version,
         }
-        for kind in ("single", "bridge")
-    }
-    usage = sum((result.usage for result in results), Counter())
     summary = {
         "funnel": funnel,
-        "network_tokens_this_run": dict(usage),
-        "stopped": [result.stopped for result in results],
-        "relevance_group_sizes": dict(Counter(len(g) for g in groups.values())),
-        "prompts_version": version,
+        "questions": dict(Counter(r["type"] for r in records)),
+        "relevance_group_sizes": dict(Counter(len(g) for r in records for g in r["relevant_groups"])),
     }
-    (out / "unpc_pilot_funnel.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    funnel_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
-    if any(result.stopped and result.stopped.startswith("daily limit") for result in results):
+    if any(r.stopped and r.stopped.startswith("daily limit") for r in ran.values()):
         sys.exit(3)
 
 

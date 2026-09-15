@@ -137,6 +137,15 @@ def test_run_build_balances_directions_and_stops_on_daily_limit():
     assert len(result.accepted) == 1 and result.stopped.startswith("daily limit")
 
 
+def test_replace_kinds_keeps_other_kinds():
+    from rageval.questions.builder import replace_kinds
+
+    previous = [{"type": "single", "qid": "s1"}, {"type": "bridge", "qid": "b1"}]
+    new = [{"type": "bridge", "qid": "b2"}]
+    assert replace_kinds(previous, new, {"bridge"}, "type") == [{"type": "single", "qid": "s1"}, {"type": "bridge", "qid": "b2"}]
+    assert replace_kinds(previous, [], {"single", "bridge"}, "type") == []
+
+
 def test_run_build_uses_other_direction_when_quota_full():
     from rageval.questions.builder import Attempt
 

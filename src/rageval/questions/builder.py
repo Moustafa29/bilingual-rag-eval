@@ -222,6 +222,11 @@ class QuestionBuilder:
         return attempt
 
 
+def replace_kinds(previous: list[dict], new: list[dict], run_kinds: set[str], field: str) -> list[dict]:
+    """Keep earlier entries of kinds not run this time; entries of kinds that were run are replaced."""
+    return [entry for entry in previous if entry[field] not in run_kinds] + new
+
+
 @dataclass
 class BuildResult:
     accepted: list[dict]
