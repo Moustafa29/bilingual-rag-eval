@@ -227,7 +227,17 @@ All three were caught during Phase 2 and fixed before any questions were built.
 
 See `rageval.questions.builder` for the step-by-step pipeline and the reason each step exists.
 
-### Metric-design failure: a 0.5 token-overlap threshold accepted a wrong answer
+### Evaluation fragility: what changes the question set
+
+Three changes to how questions are checked were measured, each on the same candidates:
+1. A 0.5 token-overlap threshold let a wrong answer through.
+2. Swapping the verifier model changed one verdict in 68.
+3. The judgement that replaced the threshold rejects some correct answers.
+
+What decides which questions exist is mainly the checking rule, not which model version was
+available.
+
+#### 1. A 0.5 token-overlap threshold accepted a wrong answer
 
 The first pipeline accepted a question when the verifier's answer span, found in the
 target-language passage, shared at least half its tokens with the blind translation of the
@@ -264,11 +274,73 @@ state the same fact (`prompts/judge_equivalence.txt`). F1 is still recorded on e
 (`answer_f1_vs_translation`) but no longer decides.
 - **Validation on the known case:** the judgement rejects the Habitat answer. The prompt's
   examples do not include it.
-- **All 5 of its rejections in the revalidation run were inspected, and all 5 are correct:**
-  the Habitat case, a section letter "جيم" (C) mistranslated as the name "Jim", and three bridge
-  answers where the verifier found a different fact from the one generated.
-- **Not yet measured:** its false-rejection rate on correct answers. The human audit of 100
-  judgement decisions covers that.
+- **Its rejections, inspected: 7 of 10 correct.** Three reject a correct answer qualified by "more
+  than" (part 3 below). An earlier version of this section said all 5 inspected rejections were
+  correct. That held only for the 5 checked at the time: the numeric group added rejections that had
+  not been inspected.
+- **Not yet measured at scale:** the human audit of 100 judgement decisions.
+
+#### 2. Swapping the verifier model changed one verdict in 68
+
+**The verifier was withdrawn.** `qwen/qwen3.6-27b`, a Groq preview model that checked every
+question, was withdrawn on 2026-09-15 with no deprecation notice: the API returned HTTP 404
+`model_not_found`, and Groq's deprecations page has no entry for it. This is exactly the preview-model
+risk `docs/design.md` had flagged.
+- **Reproducibility cost:** anyone re-running this pipeline cannot reproduce the qwen3.6 verdicts.
+  Only the cached responses record them.
+- **Why the cache wasn't enough:** it reproduces a run only while nothing changes. Any new
+  candidate, fixed check or edited prompt needs the verifier again.
+
+**How the swap was measured.** Every recorded single-hop and numeric attempt was replayed with
+`qwen/qwen3.8-27b`, keeping its exact chunk, translation direction and cached generator responses
+(`scripts/reverify.py`).
+- **Paired, not rebuilt:** the normal build would change later candidates after any flipped verdict,
+  because it balances translation directions by acceptances so far.
+- **Method check:** rejections decided before any verifier call must be unaffected. All 11 were
+  identical.
+
+| Kind | Reached the verifier | Accept → reject | Reject → accept | Rejection reason changed | Accepted: qwen3.6 → qwen3.8 |
+|---|---|---|---|---|---|
+| Single-hop | 21 | 0 | 1 | 1 | 17 → 18 |
+| Numeric | 47 | 0 | 0 | 0 | 40 → 40 |
+| **Total** | **68** | **0** | **1** | **1** | **57 → 58** |
+
+- **The one reject → accept is span copying, not judgement.**
+  - Question: "Which session of the Conference of the Parties made the request…", answer "its fifth
+    session".
+  - The old verifier answered الدورة الخامسة, which is not word-for-word in the passage (it says
+    دورته الخامسة). The new verifier copied the exact wording, so the span check passed.
+  - The answer is correct. The Arabic question renders "session" as جلسة ("meeting"), which is left
+    for the human audit.
+- **The changed rejection is the misread question** "National Automated Preventive Subcommittee"
+  (see the earlier diagnosis). The old verifier found no answer; the new one answered "Subcommittee"
+  and judged it a different fact. Rejected either way.
+- **Identical responses:** on every traced candidate, the two models returned identical responses.
+
+**Limit:** qwen3.6-27b and qwen3.8-27b are successive versions of the same 27B family. A verifier
+from a different model family was not tested and could disagree far more. One verdict in 68 shows the
+set is stable across this swap, not across verifiers in general.
+
+**Paired with part 1:** a threshold let a wrong answer through; changing the model version barely
+moved anything.
+
+#### 3. The same-answer judgement rejects some correct answers
+
+All 10 same-answer rejections made so far have been inspected by hand.
+
+| Verdict | Count | Cases |
+|---|---|---|
+| Correct rejection | 7 | the Habitat Agenda vs the UN Human Settlements Programme; a section letter "جيم" (C) mistranslated as the name "Jim"; three bridge answers where the verifier found a different fact; "150 000" where the passage states a range, "150,000 to 200,000"; the misread subcommittee name |
+| **Wrongly rejected** | **3** | "75 000" vs "over 75,000"; "2 500" vs "more than 2,500 languages"; "5,000" vs ما يزيد على 5 000 مرشح ("more than 5,000 candidates") |
+
+- **One shared pattern:** all three wrong rejections treat a lower-bound qualifier ("over", "more
+  than", ما يزيد على) as a different fact. The judgement prompt says extra qualifying words do not
+  make answers different. Both verifier models made the same three calls.
+- **Direction of the error:** wrong rejections lose valid questions; they never admit a wrong answer.
+  The numeric group still reached 40, but it is biased against facts stated as "more than N".
+- **Not fixed:** changing the prompt would change the question set again and need another
+  re-verification. The error is documented, and the human audit of 100 judgement decisions measures
+  its rate on a larger sample.
 
 ### Multi-hop questions: three measured attempts, none built
 
@@ -288,6 +360,10 @@ questions.
 - **No query-decomposition test in Phase 5.** It needs multi-subject questions.
 
 The sections below give the evidence for each attempt.
+
+**Verifier note:** attempts 1 and 2 were run with the withdrawn verifier `qwen/qwen3.6-27b`. Their
+funnels are kept as recorded and were not re-verified: multi-hop is stopped, so re-running them would
+change no decision. Attempt 3 used no LLM.
 
 #### Attempts 1 and 2: generated two-passage questions
 
