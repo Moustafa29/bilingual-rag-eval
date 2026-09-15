@@ -341,8 +341,35 @@ The first run exposed two check bugs, both affecting only Arabic-source question
      وفقًا للتقرير or حسب النص. They passed the Arabic filter and were caught only after
      translation into English.
    - *Fix:* the Arabic filter now catches them before translation.
-   - *What it shows about the generator:* the Arabic-source generator produced such questions in 16
-     of about 60 ar→en attempts, although the prompt forbids referring to the document.
+   - *What it shows about the generator:* see "Prompt instructions are followed less reliably in
+     Arabic" below.
+
+### Prompt instructions are followed less reliably in Arabic
+
+The generation prompt forbids referring to the source ("never refer to 'the passage', 'this
+document', ... or similar"). In the numeric group's first run, the same model with the same
+English-language prompt broke that rule far more often when writing in Arabic:
+
+| Question written in | Attempts | Questions referring to "the document / text / report" |
+|---|---|---|
+| Arabic (ar→en) | 80 | **16 (20%)** |
+| English (en→ar) | 22 | 0 (0%) |
+
+Fisher exact test, two-sided: p = 0.020.
+
+This is the same class of finding as the Arabic-only truncation and the digit-group reversal: the
+pipeline behaves differently in Arabic for reasons that have nothing to do with retrieval, and
+without a measurement the effect would land silently in the results.
+
+**Limits:**
+- **One model and one prompt:** `openai/gpt-oss-120b`, with instructions in English for both
+  directions.
+- **Small English side:** 22 English-source attempts.
+- **Uneven samples:** attempts per direction were set by the pipeline's direction balancing, not by
+  design.
+- **Partly downstream of the filter bug:** 12 of the 16 were caught only after translation.
+
+Whether this holds for Arabic-language instructions or other generators is not tested.
 
 The combined run used 31 network calls, all on the verifier. The 42 recovered candidates already
 had their generation and translation cached.
