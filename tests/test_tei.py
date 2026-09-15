@@ -6,6 +6,7 @@ TEI = """<?xml version="1.0" encoding="utf-8"?>
 <TEI.2><teiHeader><fileDesc><publicationStmt>
 <date>19920510</date>
 <idno type="symbol">A/CN.4/452</idno>
+<keywords><term>ARMS RACE</term><term> OUTER SPACE </term></keywords>
 <availability><p>Disclaimer paragraph that is not part of the body.</p></availability>
 </publicationStmt></fileDesc></teiHeader>
 <text><body>
@@ -22,6 +23,7 @@ def test_parse_tei_reads_symbol_and_body_sentences_only():
     doc = parse_tei(TEI)
     assert doc.symbol == "A/CN.4/452"
     assert doc.date == "19920510"
+    assert doc.keywords == ["ARMS RACE", "OUTER SPACE"]
     assert [(s.sid, s.pid) for s in doc.sentences] == [("1:1", "1"), ("2:1", "2"), ("2:2", "2")]
     assert doc.sentences[1].text == "First sentence of paragraph two."
     assert doc.sentences[2].text == 'Second "sentence".'

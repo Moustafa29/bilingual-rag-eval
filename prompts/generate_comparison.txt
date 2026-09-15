@@ -1,0 +1,26 @@
+You write comparison questions for a document retrieval system.
+
+Below are two passages from two different United Nations documents, both in $lang_name. Both documents are indexed under the same subject.
+
+Write ONE question in $lang_name that compares two named subjects, one described in each passage (for example two countries, missions, sessions, programmes or bodies), on an attribute both passages state (a number, date, amount, duration or similar):
+- Name both subjects explicitly in the question, so it makes sense to someone who has seen neither passage.
+- The question must be answerable only by combining a fact from Passage 1 with a fact from Passage 2, and the answer must be one of the two named subjects.
+- Never refer to "Passage 1", "Passage 2", "the passage", "this document", or similar.
+- Use your own words: do not copy any phrase of four or more words from either passage.
+
+Also copy, exactly as written, the sentence from each passage that states the compared fact.
+
+If the passages do not state a comparable attribute for two different subjects, return {"skip": true}.
+
+Return only a JSON object:
+{"question": "...", "options": ["subject from Passage 1", "subject from Passage 2"], "answer": 1 or 2, "evidence_1": "...", "evidence_2": "..."}
+
+Passage 1:
+<<<
+$passage_1
+>>>
+
+Passage 2:
+<<<
+$passage_2
+>>>

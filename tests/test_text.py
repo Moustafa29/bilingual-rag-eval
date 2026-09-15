@@ -1,4 +1,4 @@
-from rageval.text import answer_tokens, contains_span, normalize, token_f1
+from rageval.text import answer_tokens, contains_evidence, contains_span, normalize, token_f1
 
 
 def test_arabic_normalization_removes_diacritics_and_unifies_alef():
@@ -49,6 +49,28 @@ def test_contains_span_respects_token_boundaries():
     assert contains_span("The Security Council met.", "security council", "en")
     assert not contains_span("The Security Council met.", "Counc", "en")
     assert not contains_span("anything", "", "en")
+
+
+def test_evidence_tolerates_dropped_arabic_conjunction():
+    # Bridge re-test #1: the generator copied "وإذ يؤكد ..." as "إذ يؤكد ...".
+    passage = "وإذ يؤكد الحاجة إلى استجابة شاملة من المجتمع الدولي لمعالجة مشكلة القرصنة،"
+    copy = "إذ يؤكد الحاجة إلى استجابة شاملة من المجتمع الدولي لمعالجة مشكلة القرصنة"
+    assert not contains_span(passage, copy, "ar")
+    assert contains_evidence(passage, copy, "ar")
+
+
+def test_evidence_tolerates_hyphens_lost_in_corpus_text():
+    # Bridge re-test #14: the passage says "SecretaryGeneral's", the copy "Secretary-General's".
+    passage = "He supported the recommendations in paragraph 77 of the SecretaryGeneral's report on poverty."
+    copy = "He supported the recommendations in paragraph 77 of the Secretary-General's report on poverty."
+    assert not contains_span(passage, copy, "en")
+    assert contains_evidence(passage, copy, "en")
+
+
+def test_evidence_still_rejects_a_different_sentence():
+    assert not contains_evidence("The Council decided to extend the mandate.", "The Assembly decided to end the mission.", "en")
+    assert not contains_evidence("قررت الجمعية تمديد الولاية.", "قرر المجلس إنهاء البعثة.", "ar")
+    assert not contains_evidence("anything", "", "en")
 
 
 def test_contains_span_arabic_variants():

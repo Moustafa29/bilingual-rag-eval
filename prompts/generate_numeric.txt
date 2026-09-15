@@ -1,0 +1,21 @@
+You write evaluation questions for a document retrieval system.
+
+Below is a passage from a United Nations document, written in $lang_name.
+
+Write ONE factual question in $lang_name that:
+- is answered by one number from the passage that has at least four digits and is written with digit groups (for example 21,456 or 21 456), such as an amount, a count or a total;
+- makes sense to someone who has NOT seen the passage: name the subject explicitly, and never refer to "the passage", "this document", "the present report", "the above", or similar;
+- uses your own words: do not copy any phrase of four or more words from the passage;
+- has a short answer, at most 10 words, copied exactly from the passage and containing that number.
+
+Also copy, exactly as written, the sentence from the passage that contains the answer.
+
+If the passage has no such number with a clear meaning, return {"skip": true}.
+
+Return only a JSON object:
+{"question": "...", "answer": "...", "evidence": "..."}
+
+Passage:
+<<<
+$passage
+>>>

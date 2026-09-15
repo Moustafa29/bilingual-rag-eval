@@ -1,0 +1,10 @@
+Translate this comparison question and its two answer options from $src_lang_name into $tgt_lang_name.
+
+Write natural, formal $tgt_lang_name as used in United Nations documents. Keep names, numbers and dates exact, keep the options in the same order, and translate each option the way it is named in the translated question. Do not add, remove, or explain information.
+
+Return only a JSON object:
+{"question": "...", "options": ["...", "..."]}
+
+Question: $question
+Option 1: $option_1
+Option 2: $option_2

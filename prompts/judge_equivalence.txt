@@ -1,0 +1,11 @@
+Two short answers to the same question are given, one in $src_lang_name and one in $tgt_lang_name.
+
+Decide whether they state the same fact: the same entity, number, date or decision.
+- Wording, spelling of names, the way a number or currency is written, and extra qualifying words do NOT make them different.
+- A different entity, a different number or date, or a broader or narrower thing DOES make them different (for example a country and its capital city are different things).
+
+Return only a JSON object: {"same": true} or {"same": false}
+
+Question ($src_lang_name): $question
+Answer ($src_lang_name): $answer_src
+Answer ($tgt_lang_name): $answer_tgt

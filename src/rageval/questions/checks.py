@@ -9,7 +9,7 @@ from rageval.text import normalize
 
 # A retrieval question has to stand on its own: it cannot point at a passage the user never saw.
 _CONTEXT_EN = re.compile(
-    r"\b(?:this|the above|the present|the aforementioned|the said|above-mentioned)\s+"
+    r"\b(?:this|the above|the present|the aforementioned|the said|above-mentioned|the mentioned|the referenced|the cited)\s+"
     r"(?:passage|text|excerpt|document|report|resolution|letter|note|paragraph|section|chapter|annex|decision)\b"
     r"|\b(?:in|from|according to)\s+the\s+(?:passage|text|excerpt)\b"
     r"|\b(?:mentioned|referred to|cited)\s+above\b"
@@ -34,6 +34,14 @@ _CONTEXT_AR = tuple(
         "الواردة أعلاه",
         "المشار إليه أعلاه",
         "المشار إليها أعلاه",
+        # "the mentioned decision/report/...". Written without the article's alef so the phrase also
+        # matches after a clitic preposition: "للقرار المذكور", "بالقرار المذكور".
+        "لقرار المذكور",
+        "لمقرر المذكور",
+        "لتقرير المذكور",
+        "لوثيقة المذكورة",
+        "لرسالة المذكورة",
+        "لاجتماع المذكور",
     )
 )
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 _SPACE = re.compile(r"\s+")
 _GROUP = re.compile(r"<linkGrp\b([^>]*)>")
@@ -33,6 +33,7 @@ class TeiDoc:
     symbol: str | None
     date: str | None
     sentences: list[Sentence]
+    keywords: list[str] = field(default_factory=list)  # UNBIS subject terms from the header
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def parse_tei(data: bytes) -> TeiDoc:
         symbol=symbol.text.strip() if symbol is not None and symbol.text else None,
         date=date.text.strip() if date is not None and date.text else None,
         sentences=sentences,
+        keywords=[t.text.strip() for t in root.findall(".//keywords/term") if t.text and t.text.strip()],
     )
 
 

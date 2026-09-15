@@ -1,7 +1,14 @@
 from itertools import islice
 
 from rageval.corpus.unpc import PairStats, cited_closure, is_eligible, select_seeds, selection_key
-from rageval.questions.sampling import bridge_candidates, group_by_doc, is_content_chunk, single_candidates
+from rageval.questions.sampling import (
+    bridge_candidates,
+    comparison_candidates,
+    group_by_doc,
+    is_content_chunk,
+    numeric_candidates,
+    single_candidates,
+)
 
 RULES = {"min_chars": 100, "min_one_to_one_ratio": 0.8, "min_letter_ratio": 0.6, "max_toc_line_ratio": 0.3, "min_paragraph_words": 12}
 PROSE = (
@@ -56,6 +63,29 @@ def test_single_candidates_one_per_doc_and_deterministic():
     first = [c["chunk_id"] for c in single_candidates(by_doc, RULES, seed=1)]
     assert first == [c["chunk_id"] for c in single_candidates(by_doc, RULES, seed=1)]
     assert len({cid.split("#")[0] for cid in first}) == len(first) == 5
+
+
+def test_numeric_candidates_need_a_corrected_thousands_number():
+    with_number = dict(chunk("2010/a/1#0000", en=PROSE + " In total 21,456 people were relocated."), numbers_corrected=1)
+    uncorrected = dict(chunk("2010/a/2#0000", en=PROSE + " In total 21,456 people were relocated."), numbers_corrected=0)
+    no_number = dict(chunk("2010/a/3#0000"), numbers_corrected=1)
+    found = list(numeric_candidates(group_by_doc([with_number, uncorrected, no_number]), RULES, seed=1))
+    assert [c["chunk_id"] for c in found] == ["2010/a/1#0000"]
+
+
+def test_comparison_candidates_pair_documents_sharing_a_mentioned_subject_term():
+    rwanda_1 = dict(chunk("2001/s/1#0000", en=PROSE + " The situation in Rwanda was discussed."), keywords=["RWANDA", "HUMAN RIGHTS"])
+    rwanda_2 = dict(chunk("2003/s/2#0000", en=PROSE + " Refugees returned to Rwanda."), keywords=["RWANDA--POLITICAL CONDITIONS"])
+    silent = dict(chunk("2004/s/3#0000"), keywords=["RWANDA"])  # indexed under the term, never mentions it
+    found = list(comparison_candidates(group_by_doc([rwanda_1, rwanda_2, silent]), RULES, seed=1))
+    assert len(found) == 1
+    a, b, term = found[0]
+    assert term == "RWANDA" and {a["chunk_id"], b["chunk_id"]} == {"2001/s/1#0000", "2003/s/2#0000"}
+
+
+def test_comparison_candidates_skip_terms_shared_by_too_many_documents():
+    docs = [dict(chunk(f"2001/s/{i}#0000", en=PROSE + " Human rights matter."), keywords=["HUMAN RIGHTS"]) for i in range(5)]
+    assert list(comparison_candidates(group_by_doc(docs), RULES, seed=1, max_keyword_docs=3)) == []
 
 
 def test_bridge_candidates_link_citing_chunk_to_cited_document():

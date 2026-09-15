@@ -29,10 +29,16 @@ chunking:
 
 questions:
   n_single: 100
-  n_bridge: 50
+  n_numeric: 40               # oversampled so corrected-vs-uncorrected has a confidence interval
+  n_comparison: 50            # stop multi-hop if the 20-candidate test accepts fewer than 5
+  n_bridge: 50                # citation bridges: documented negative result, not in "all"
   max_candidates_single: 250
+  max_candidates_numeric: 120
+  max_candidates_comparison: 300
   max_candidates_bridge: 300
-  answer_f1_threshold: 0.5
+  comparison_max_keyword_docs: 20
+  # No answer_f1_threshold: token F1 >= 0.5 accepted a wrong answer in the pilot and is now only
+  # recorded. Answers are gated by the verifier's same-fact judgement (prompts/judge_equivalence.txt).
   dedup_jaccard: 0.8
   shingle_size: 5
   content_filter:
@@ -52,7 +58,7 @@ questions:
       include_reasoning: false    # keep reasoning out of `content` so the JSON parses
       max_completion_tokens: 2048
       response_format: {type: json_object}
-  verifier:
+  verifier:  # also judges answer equivalence and comparison choices
     base_url: https://api.groq.com/openai/v1
     api_key_env: GROQ_API_KEY
     model: qwen/qwen3.6-27b
@@ -63,3 +69,12 @@ questions:
       reasoning_format: hidden    # Groq: JSON mode requires parsed or hidden, not raw
       max_completion_tokens: 512
       response_format: {type: json_object}
+
+audit:
+  n: 100
+  # Accepted smoke-run questions the context filter missed. They stay in the audit on purpose, so the
+  # audit measures how many such misses remain rather than assuming. Keyed by gold chunk id, because
+  # question ids are renumbered on every rebuild.
+  flag_chunks:
+    "2003/a/c_6/58/sr_1#0002": "smoke #5: 'according to the mentioned decision' (filter extended afterwards)"
+    "2006/e/c_19/2006/6/add_14#0014": "smoke #10: 'the meeting' without saying which (not caught by the filter)"

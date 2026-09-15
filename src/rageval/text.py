@@ -87,3 +87,32 @@ def contains_span(haystack: str, span: str, lang: str) -> bool:
     if not needle:
         return False
     return f" {' '.join(needle)} " in f" {' '.join(tokens(haystack, lang))} "
+
+
+_AR_CONJUNCTIONS = ("و", "ف")
+
+
+def _strip_conjunction(token: str) -> str:
+    return token[1:] if len(token) >= 3 and token[0] in _AR_CONJUNCTIONS else token
+
+
+def contains_evidence(haystack: str, span: str, lang: str) -> bool:
+    """Containment for copied evidence sentences, tolerant of two copy variants seen in the pilot.
+
+    - Arabic: a dropped or added conjunction clitic ("وإذ يؤكد" copied as "إذ يؤكد"). One leading و or
+      ف is removed from every token on both sides before comparing.
+    - English: hyphens the corpus text lost ("SecretaryGeneral's" in the passage, "Secretary-General's"
+      in the copy). Token sequences are compared with spaces removed, for spans of 5+ tokens only.
+
+    Evidence is a whole sentence, so this looseness cannot turn a different sentence into a match.
+    Short answers keep the strict `contains_span`.
+    """
+    if contains_span(haystack, span, lang):
+        return True
+    hay, needle = tokens(haystack, lang), tokens(span, lang)
+    if not needle:
+        return False
+    if lang == "ar":
+        hay, needle = [_strip_conjunction(t) for t in hay], [_strip_conjunction(t) for t in needle]
+        return f" {' '.join(needle)} " in f" {' '.join(hay)} "
+    return len(needle) >= 5 and "".join(needle) in "".join(hay)

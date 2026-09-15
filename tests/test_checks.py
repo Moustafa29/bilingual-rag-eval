@@ -26,6 +26,14 @@ def test_in_the_document_is_a_context_reference_unless_it_describes_the_document
     assert not has_context_reference("According to the report of the Secretary-General on refugees, how many are there?", "en")
 
 
+def test_the_mentioned_decision_is_a_context_reference():
+    # Accepted single-hop #5 from the smoke run, which the earlier filter missed.
+    assert has_context_reference("من الذي يُقترح أن يرأس الفريق العامل وفقاً للقرار المذكور؟", "ar")
+    assert has_context_reference("Who is proposed to chair the working team according to the mentioned decision?", "en")
+    assert has_context_reference("ما الذي تقرر في الاجتماع المذكور؟", "ar")
+    assert not has_context_reference("ما الذي قرره مجلس الأمن في قراره بشأن الصومال؟", "ar")
+
+
 def test_document_numbers_detected_in_both_scripts():
     assert mentions_document_number("What did A/47/10 recommend?", "en")
     assert mentions_document_number("What did resolution 47/33 request?", "en")

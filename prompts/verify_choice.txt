@@ -1,0 +1,14 @@
+Answer the question using ONLY the passages below. Do not use outside knowledge.
+
+Choose the option the passages show to be correct. If the passages do not contain enough information to decide, choose null.
+
+Return only a JSON object, one of:
+{"choice": 1}
+{"choice": 2}
+{"choice": null}
+
+Question ($lang_name): $question
+Option 1: $option_1
+Option 2: $option_2
+
+$passages

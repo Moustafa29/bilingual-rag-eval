@@ -175,6 +175,7 @@ def main() -> None:
         # link between two passages is visible; retrieval indexes only the text.
         for c in doc_chunks:
             c["header"] = f"Document {en.symbol}" if en.symbol else ""
+            c["keywords"] = en.keywords  # document-level subject terms, used to pair comparison candidates
         chunks.extend(doc_chunks)
 
     # Arabic digit-group reversal (rageval.corpus.numbers). Audit the text as distributed, keep that
