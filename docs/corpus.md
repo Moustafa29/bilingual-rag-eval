@@ -56,10 +56,26 @@ artifact, and it would be indistinguishable from a real language effect in the r
   Arabic text alone.
 - **Formatting preserved:** digit script (Western or Arabic-Indic) and separator characters are
   kept; only the group order changes.
-- **Known gap: decimal amounts.** The correction matches whole digit groups, so a decimal amount
-  stays reversed. English "$5,538.6 million" appears in the Arabic passage as `538.6 5 ملايين دولار`.
-  It surfaced as a rejected question (§3, evaluation fragility part 3). How many such amounts remain
-  has not been counted.
+- **Known gap: decimal amounts, counted.** The correction matches whole digit groups, so an amount
+  with a decimal part stays reversed: English "$5,538.6 million" appears in the Arabic passage as
+  `538.6 5 ملايين دولار`. It first surfaced as a rejected question (§3, evaluation fragility part 3).
+
+  | English amounts with thousands groups and a decimal part | Count |
+  |---|---|
+  | Still reversed in the Arabic chunk (`538.6 5`) | **56 (78%)**, in 35 chunks |
+  | Not found in the Arabic chunk | 13 |
+  | Written with a comma (`5,538.6`) | 2 |
+  | Written without separators (`5538.6`) | 1 |
+  | **Total** | **72** |
+
+  - **Effect on the numeric comparison: none on the current question set.** None of the 122
+    questions, and none of the 43 numeric ones, has a gold passage containing a reversed decimal,
+    and no numeric answer is a decimal amount. The corrected-vs-uncorrected comparison therefore
+    measures a complete correction for the numbers its questions use.
+  - **At corpus level the correction is partial:** those 56 amounts remain reversed in both corpus
+    versions.
+  - **To recheck:** when single-hop reaches 100 questions, new questions could land on those 35
+    chunks.
 - **Scale:** 3,600 corrections in 1,604 chunks.
   - Corrections exceed the reversed count by 2 because a number written once in English can
     appear more than once in its Arabic chunk.
@@ -320,9 +336,14 @@ risk `docs/design.md` had flagged.
   and judged it a different fact. Rejected either way.
 - **Identical responses:** on every traced candidate, the two models returned identical responses.
 
-**Limit:** qwen3.6-27b and qwen3.8-27b are successive versions of the same 27B family. A verifier
-from a different model family was not tested and could disagree far more. One verdict in 68 shows the
-set is stable across this swap, not across verifiers in general.
+**The real limit of this test: a swap cannot detect an error both models make.**
+- **What agreement shows:** the question set does not depend on which of the two verifiers was used.
+  It says nothing about errors they share.
+- **Evidence from part 3:** both models rejected the same correct "more than N" answers, identically.
+  The one-flip-in-68 result coexists with a systematic blind spot that neither the swap nor the replay
+  could reveal; only inspection found it.
+- **A narrower test than it looks:** the two models are successive versions of the same 27B family.
+  A verifier from a different family was not tested and could disagree far more.
 
 **Paired with part 1:** a threshold let a wrong answer through; changing the model version barely
 moved anything.

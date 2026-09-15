@@ -173,6 +173,11 @@ statistical power.**
   word without a space (`و440`, `قدرها311`), where reversing the groups changes which digits are
   attached.
 
+**What "corrected" covers.** The correction handles whole digit groups. 56 decimal amounts
+(`538.6 5` for 5,538.6) stay reversed in both corpus versions (`docs/corpus.md`, second result).
+None of the 43 numeric questions has such an amount in its gold passage, so for these questions the
+comparison is between fully corrected and uncorrected text.
+
 **Where the correction can matter:**
 - **Dense retrieval.** Embedding models read token order, so `000 50` and `50 000` produce
   different vectors. Not yet run; needs the Colab T4 (`docs/colab.md`).
@@ -196,12 +201,17 @@ statistical power.**
 | bm25-norm | +0.233 [+0.070, +0.395] | +0.203 [+0.026, +0.380] | 13 / 3 | 0.021 |
 | bm25-light | +0.186 [+0.000, +0.349] | +0.116 [−0.065, +0.296] | 12 / 4 | 0.077 |
 
-**Limits of this table:**
-- **Sample.** 43 questions, all drawn from chunks containing large numbers, so it is not a sample of
-  the corpus. The intervals are wide.
-- **Unstable at this size.** On the earlier 41-question set, the stemmed recall@5 gap was +0.220
-  with McNemar p = 0.035. Two added questions moved it to +0.186 with p = 0.077. A result that shifts
-  that much when two questions are added should not be read beyond its direction.
+**Directional, not conclusive.** Read this table for the sign of the gaps, not their size.
+- **Unstable at this size.** On the earlier 41-question set, the stemmed recall@5 gap was +0.220 with
+  McNemar p = 0.035. Two added questions moved it to +0.186 with p = 0.077.
+- **What a stable interval would need.**
+  - Per question, the EN − AR difference has a standard deviation of 0.57–0.61, across the three
+    analyzers and both metrics.
+  - At n = 43 that makes a 95% interval about ±0.17–0.18 wide.
+  - Holding that variability, ±0.10 needs roughly 130–145 numeric questions and ±0.05 roughly 500–570
+    (normal approximation). The pilot will reach neither.
+- **Sample.** All 43 questions are drawn from chunks containing large numbers, so this is not a
+  sample of the corpus.
 - **Consistent with XQuAD in direction.** Light stemming narrows the Arabic gap here too: the MRR
   gap falls from +0.229 to +0.116, and its interval includes zero.
 - **English stemming hurts.** Light stemming lowers English recall@5 on these questions (0.860 →
