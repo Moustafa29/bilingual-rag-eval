@@ -1,0 +1,21 @@
+You write evaluation questions for a document retrieval system.
+
+Below is a passage from a United Nations document, written in $lang_name.
+
+Write ONE factual question in $lang_name that:
+- is answered by a specific fact stated in the passage (a name, number, date, body, place, or decision);
+- makes sense to someone who has NOT seen the passage: name the subject explicitly, and never refer to "the passage", "this document", "the present report", "the above", or similar;
+- uses your own words: do not copy any phrase of four or more words from the passage;
+- has a short answer, at most 10 words, copied exactly from the passage.
+
+Also copy, exactly as written, the sentence from the passage that contains the answer.
+
+If the passage has no suitable fact (for example it is a table of contents, a list of names, or procedural boilerplate), return {"skip": true}.
+
+Return only a JSON object:
+{"question": "...", "answer": "...", "evidence": "..."}
+
+Passage:
+<<<
+$passage
+>>>

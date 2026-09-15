@@ -1,0 +1,28 @@
+You write two-step evaluation questions for a document retrieval system.
+
+Passage A comes from a United Nations document that refers to another document, $symbol.
+Passage B comes from that referenced document. Both passages are in $lang_name.
+
+Write ONE question in $lang_name that can only be answered by combining both passages:
+- The answer is a specific fact stated in Passage B: at most 10 words, copied exactly from Passage B.
+- The question identifies the referenced document ONLY by describing it with information from Passage A (for example what it is, who requested or submitted it, or what it concerns). Never write a document symbol, a document number, or a resolution number.
+- Passage A alone must not contain the answer, and Passage B alone must not make clear which document the question is about.
+- The question must make sense to someone who has seen neither passage. Never refer to "Passage A", "Passage B", "the passage", "this document", or similar.
+- Use your own words: do not copy any phrase of four or more words from either passage.
+
+Also copy, exactly as written: the sentence from Passage A that refers to the other document, and the sentence from Passage B that contains the answer.
+
+If no such question is possible, return {"skip": true}.
+
+Return only a JSON object:
+{"question": "...", "answer": "...", "evidence_a": "...", "evidence_b": "..."}
+
+Passage A:
+<<<
+$passage_a
+>>>
+
+Passage B:
+<<<
+$passage_b
+>>>

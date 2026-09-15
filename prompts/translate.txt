@@ -1,0 +1,9 @@
+Translate this question and its short answer from $src_lang_name into $tgt_lang_name.
+
+Write natural, formal $tgt_lang_name as used in United Nations documents. Keep names, numbers and dates exact. Do not add, remove, or explain information.
+
+Return only a JSON object:
+{"question": "...", "answer": "..."}
+
+Question: $question
+Answer: $answer

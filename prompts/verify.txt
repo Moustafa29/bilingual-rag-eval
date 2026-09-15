@@ -1,0 +1,12 @@
+Answer the question using ONLY the passages below. Do not use outside knowledge.
+
+If the passages contain the answer, copy the shortest exact span from the passages that answers it (at most 10 words), in $lang_name as written in the passages.
+If the passages do not contain enough information to answer, set "answerable" to false.
+
+Return only a JSON object, one of:
+{"answerable": true, "answer": "..."}
+{"answerable": false, "answer": ""}
+
+Question: $question
+
+$passages

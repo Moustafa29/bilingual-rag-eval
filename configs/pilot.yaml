@@ -1,0 +1,65 @@
+seed: 20260915
+
+paths:
+  data: data            # local, git-ignored
+  manifests: manifests  # committed
+  prompts: prompts      # committed
+
+unpc:
+  opus_base: https://object.pouta.csc.fi/OPUS-UNPC/v1.0
+  alignment_file: data/unpc/ar-en.xml.gz
+  alignment_sha256: aca39806004e2127047af654d393e31108182ab3130e76fb96e47876ed2ccb52
+  selection_salt: rageval-unpc-v1
+  # Of 114,047 en-ar document pairs, 35,979 pass these rules (docs/corpus.md).
+  eligibility:
+    min_one_to_one_links: 30    # below this, mostly cover pages and short notes
+    max_one_to_one_links: 400   # above this (~p90), one report would dominate the chunk pool
+    min_one_to_one_ratio: 0.85  # share of links that pair exactly one sentence with one sentence
+  # Cut from 1,500 + 500 (53,587 chunks) before any questions were built: embedding the corpus
+  # twice on a free Colab T4 per model was hours of iteration time for no gain in the result.
+  n_seed_docs: 1000
+  max_cited_docs: 250
+
+chunking:
+  tokenizer: intfloat/multilingual-e5-base  # identical vocabulary to BAAI/bge-m3 (checked)
+  passage_prefix: "passage: "
+  model_max_tokens: 512
+  target_tokens: 200
+  max_tokens: 350
+
+questions:
+  n_single: 100
+  n_bridge: 50
+  max_candidates_single: 250
+  max_candidates_bridge: 300
+  answer_f1_threshold: 0.5
+  dedup_jaccard: 0.8
+  shingle_size: 5
+  content_filter:
+    min_chars: 300
+    min_letter_ratio: 0.6
+    max_toc_line_ratio: 0.3
+    min_paragraph_words: 25
+    min_one_to_one_ratio: 0.8
+  generator:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: openai/gpt-oss-120b
+    params:
+      temperature: 0
+      seed: 20260915
+      reasoning_effort: low       # gpt-oss accepts low | medium | high; reasoning tokens still count
+      include_reasoning: false    # keep reasoning out of `content` so the JSON parses
+      max_completion_tokens: 2048
+      response_format: {type: json_object}
+  verifier:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: qwen/qwen3.6-27b
+    params:
+      temperature: 0
+      seed: 20260915
+      reasoning_effort: none      # qwen3.6-27b accepts none | default
+      reasoning_format: hidden    # Groq: JSON mode requires parsed or hidden, not raw
+      max_completion_tokens: 512
+      response_format: {type: json_object}
