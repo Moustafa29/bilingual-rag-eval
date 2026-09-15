@@ -1,0 +1,24 @@
+# Colab install list. Install it constrained to Colab's own torch stack (see docs/colab.md):
+#   pip freeze | grep -E '^(torch|torchvision|torchaudio)==' > /tmp/torch-constraints.txt
+#   pip install -q -r requirements-colab.txt -c /tmp/torch-constraints.txt
+#
+# torch, torchvision and torchaudio are deliberately absent: installing requirements.txt upgrades torch
+# and orphans Colab's preinstalled torchvision and torchaudio, which broke an earlier session. The
+# constraints file keeps them at Colab's versions; if a package below needs a different torch, pip stops
+# with a visible conflict instead.
+#
+# numpy, scipy, pandas and tqdm are also left to Colab's preinstalled versions. Pinning the laptop's
+# versions can break Colab's own packages.
+
+# Pinned: they decide retrieval results.
+sentence-transformers==6.0.1
+faiss-cpu==1.15.0
+snowballstemmer==3.1.1
+# Chunk boundaries depend on token counts. A different tokenizers version could cut the rebuilt corpus
+# differently from the one the frozen questions point at; colab_check.py --verify-data catches that.
+tokenizers==0.23.2
+
+# Unpinned: resolved against Colab's torch by pip.
+transformers
+pyyaml
+httpx

@@ -117,6 +117,13 @@ generation:
       max_completion_tokens: 128
       response_format: {type: json_object}
 
+# Frozen data, fingerprinted line-ending-insensitively (rageval.io.jsonl_fingerprint). A corpus rebuilt on
+# Colab must match before retrieval runs: scripts/colab_check.py --verify-data.
+fingerprints:
+  data/questions/unpc_pilot.jsonl: e28a96fdb6b3ca0ca72fc7a7fa3758069087628148f70431538a7c123d136d4f
+  data/corpus/unpc/chunks.jsonl: 72bde3983c74bf8103c03872d3974506d2f4b65fd0eb1b6cc422994114f2d3af
+  data/corpus/unpc_uncorrected/chunks.jsonl: f2354678034f4144a36237b6dbd3a074bcc99ec706c7b0294b3830b36a29faaa
+
 audit:
   n: 100
   # Accepted smoke-run questions the context filter missed. They stay in the audit on purpose, so the

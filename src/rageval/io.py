@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Iterable
@@ -28,6 +29,20 @@ def load_dotenv(path: str | Path = ".env") -> None:
 def read_jsonl(path: str | Path) -> list[dict]:
     with open(path, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def jsonl_fingerprint(path: str | Path) -> str:
+    """SHA-256 over a file's lines with line endings removed.
+
+    The same records written on Windows (CRLF) and on Linux/Colab (LF) get the same fingerprint, so a
+    corpus rebuilt on Colab can be checked against one built on the laptop.
+    """
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for line in f:
+            digest.update(line.rstrip(b"\r\n"))
+            digest.update(b"\n")
+    return digest.hexdigest()
 
 
 def write_jsonl(path: str | Path, records: Iterable[dict]) -> None:
