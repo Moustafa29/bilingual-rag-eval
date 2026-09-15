@@ -270,7 +270,26 @@ state the same fact (`prompts/judge_equivalence.txt`). F1 is still recorded on e
 - **Not yet measured:** its false-rejection rate on correct answers. The human audit of 100
   judgement decisions covers that.
 
-### Multi-hop questions: two negative results
+### Multi-hop questions: three measured attempts, none built
+
+Three different constructions were tried on this corpus. Each failed for a different, measured
+reason, and each was stopped by a rule fixed before its test. The pilot therefore has no multi-hop
+questions.
+
+| # | Construction | How it was tested | Result | Cause |
+|---|---|---|---|---|
+| 1 | Citation bridges: passage A cites document B, and the answer is in B | 20 candidates, three runs; stop if fewer than 5 of 20 are accepted | 0 valid of 20 | The citation link exists only in metadata: B's text names its own symbol in 3 of 233 candidates. Citations describe documents by title, so B alone answers. |
+| 2 | Comparisons between two documents sharing a UNBIS subject term | 20 candidates; same stop rule | 0 of 20 | Shared subject terms are topical, not parallel: the generator declined 15 of 20 pairs, and the rest were contrived. |
+| 3 | Deterministic comparisons of mission-financing appropriations | Probe with no LLM calls; gate of at least 60 pairs, plus at most 1 of 30 sampled records wrong | 101 pairs but 2 of 30 wrong; not built | Even template-parallel documents need per-template rules (liquidation budgets, support-account shares, partial years). The probe stopped rather than patch extraction until a sample passed. |
+
+**What this rules out for the pilot:**
+- **No multi-hop retrieval results.** AllRecall@k, where hybrid retrieval and reranking were expected
+  to separate from dense-only retrieval, cannot be reported from this corpus.
+- **No query-decomposition test in Phase 5.** It needs multi-subject questions.
+
+The sections below give the evidence for each attempt.
+
+#### Attempts 1 and 2: generated two-passage questions
 
 Both two-passage constructions were tested on 20 candidates against a threshold fixed in
 advance: fewer than 5 accepted means stop. Both stopped. The pilot therefore has no multi-hop
