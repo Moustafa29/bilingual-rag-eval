@@ -65,6 +65,7 @@ def main() -> None:
     parser.add_argument("--langs", default="en,ar")
     parser.add_argument("--sample", type=int, help="seeded random subset of N questions")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--max-calls", type=int, help="stop after N network calls (cached answers are free), e.g. 20 to measure real token use")
     args = parser.parse_args()
     load_dotenv()
     cfg = load_config(args.config)
@@ -86,7 +87,8 @@ def main() -> None:
     reasoning = "reasoning_effort" in answerer.params and answerer.params.get("reasoning_effort") != "none"
 
     dry = {"answerer": answerer.model, "questions": len(questions), "by_condition": {}, "assumed_output_tokens_per_call": ASSUMED_OUTPUT_TOKENS}
-    stopped = False
+    stopped = capped = False
+    network_calls = 0
     for condition_spec in args.conditions.split(","):
         condition, _, run_name = condition_spec.partition(":")
         for lang in args.langs.split(","):
@@ -146,6 +148,10 @@ def main() -> None:
                         "cache_key": out["cache_key"],
                     }
                 )
+                network_calls += not out["cached"]
+                if args.max_calls is not None and network_calls >= args.max_calls:
+                    capped = True
+                    break
 
             name = condition_spec.replace(":", "_") + (f"@{args.context_corpus}" if args.context_corpus else "")
             if args.dry_run:
@@ -157,6 +163,9 @@ def main() -> None:
             print(f"{model_dir(answerer.model)}/{name} {lang}: {len(rows)} answers, abstained {sum(r['abstained'] for r in rows)}, retrieved {sum(r['retrieved'] for r in rows)}")
             if stopped:
                 sys.exit(3)
+            if capped:
+                print(f"stopped after {network_calls} network calls (--max-calls); re-run without it to continue from cache")
+                return
 
     if args.dry_run:
         totals = {key: sum(s[key] for s in dry["by_condition"].values()) for key in next(iter(dry["by_condition"].values()))}

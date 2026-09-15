@@ -28,6 +28,9 @@ chunking:
   max_tokens: 350
 
 questions:
+  # Frozen 2026-09-15 at 88 single-hop + 40 numeric = 128 questions. The last 12 single-hop questions
+  # would narrow intervals by about 4% and were costing generator quota that answer generation needs.
+  frozen: "88 single-hop + 40 numeric"
   n_single: 100
   n_numeric: 40               # oversampled so corrected-vs-uncorrected has a confidence interval
   n_comparison: 50            # stop multi-hop if the 20-candidate test accepts fewer than 5

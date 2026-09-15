@@ -60,6 +60,8 @@ def main() -> None:
     load_dotenv()
     cfg = load_config(args.config)
     q = cfg["questions"]
+    if q.get("frozen") and not args.dry_run:
+        raise SystemExit(f"the question set is frozen ({q['frozen']}); see questions.frozen in the config")
     data = Path(cfg["paths"]["data"])
     seed = cfg["seed"]
     if args.max_candidates is not None:

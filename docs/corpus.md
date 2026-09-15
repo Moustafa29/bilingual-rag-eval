@@ -74,8 +74,8 @@ artifact, and it would be indistinguishable from a real language effect in the r
     measures a complete correction for the numbers its questions use.
   - **At corpus level the correction is partial:** those 56 amounts remain reversed in both corpus
     versions.
-  - **To recheck:** when single-hop reaches 100 questions, new questions could land on those 35
-    chunks.
+  - **Rechecked on the frozen set of 128 questions:** still none has a reversed decimal in its gold
+    passage.
 - **Scale:** 3,600 corrections in 1,604 chunks.
   - Corrections exceed the reversed count by 2 because a number written once in English can
     appear more than once in its Arabic chunk.
@@ -294,7 +294,7 @@ state the same fact (`prompts/judge_equivalence.txt`). F1 is still recorded on e
 (`answer_f1_vs_translation`) but no longer decides.
 - **Validation on the known case:** the judgement rejects the Habitat answer. The prompt's
   examples do not include it.
-- **Its rejections, inspected: 8 of 13 correct.** Five reject an answer stating the same fact (part 3
+- **Its rejections, inspected: 8 of 14 correct.** Six reject an answer stating the same fact (part 3
   below). An earlier version of this section said all 5 inspected rejections were correct. That held
   only for the 5 checked at the time: later runs added rejections that had not been inspected.
 - **Not yet measured at scale:** the human audit of 100 judgement decisions.
@@ -350,21 +350,21 @@ moved anything.
 
 #### 3. The same-answer judgement rejects some correct answers
 
-All 13 same-answer rejections made so far (after the single-hop rebuild with `qwen3.8-27b`) have
-been inspected by hand.
+All 14 same-answer rejections on the frozen question set have been inspected by hand.
 
 | Verdict | Count | Cases |
 |---|---|---|
 | Correct rejection | 8 | the Habitat Agenda vs the UN Human Settlements Programme; a section letter "جيم" (C) mistranslated as the name "Jim"; three bridge answers where the verifier found a different fact; "150 000" where the passage states a range, "150,000 to 200,000"; the misread subcommittee name; "24/11" vs "42/11", two different resolution numbers |
-| **Same fact, rejected** | **5** | see the three patterns below |
+| **Same fact, rejected** | **6** | see the four patterns below |
 
-The five same-fact rejections fall into three patterns:
+The six same-fact rejections fall into four patterns:
 
 | Pattern | Count | Cases |
 |---|---|---|
 | A lower-bound qualifier treated as a different fact | 3 | "75 000" vs "over 75,000"; "2 500" vs "more than 2,500 languages"; "5,000" vs ما يزيد على 5 000 مرشح ("more than 5,000 candidates") |
 | A context-implied detail treated as different | 1 | "before the end of 2005" vs قبل نهاية العام ("before the end of the year"), in a paragraph that has just said "during 2005" |
 | A number still reversed in the Arabic passage | 1 | "$5,538.6 million" vs `538.6 5 ملايين دولار`, a decimal amount the digit-group correction does not handle (see the second result) |
+| An official Arabic term treated as different from its English counterpart | 1 | "Formulation of the withdrawal of a reservation at the international level" vs the official Arabic title إعلان سحب التحفظ على الصعيد الدولي. UN Arabic renders "formulation" as إعلان, not a literal word for it; the judgement compared the English answer with the Arabic title and called them different facts. |
 
 - **Against the prompt:** the judgement prompt says extra qualifying words do not make answers
   different. The qualifier pattern appeared with both verifier models on every case replayed.
@@ -578,10 +578,15 @@ covered under "three measured attempts" above.
 
 | | Single-hop | Numeric |
 |---|---|---|
-| Candidates tried | 111 | 54 |
-| Accepted | **82** (target 100; stopped at the daily token limit, resumable) | **40** (target reached) |
-| Accepted en→ar / ar→en | 45 / 37 | 20 / 20 |
-| Rejections | context reference 8, not answerable after translation 7, answers state different facts 5, generator skipped 4, verified answer not in passage 3, evidence not in passage 2 | context reference 6, answers state different facts 4, not answerable after translation 2, verified answer not in passage 1, evidence not in passage 1 |
+| Candidates tried | 119 | 54 |
+| Accepted | **88** (frozen; the target was 100) | **40** (target reached) |
+| Accepted en→ar / ar→en | 48 / 40 | 20 / 20 |
+| Rejections | context reference 8, not answerable after translation 8, answers state different facts 6, generator skipped 4, verified answer not in passage 3, evidence not in passage 2 | context reference 6, answers state different facts 4, not answerable after translation 2, verified answer not in passage 1, evidence not in passage 1 |
+
+**Frozen at 128 questions** (88 single-hop + 40 numeric):
+- **Why stop at 88:** the last 12 single-hop questions would narrow intervals by about 4%
+  (1/√n, 128 → 140), and they were costing generator quota that answer generation needs.
+- **Guard:** `scripts/build_questions.py` refuses to run while `questions.frozen` is set.
 
 - **The numeric group is identical to its earlier build** with the withdrawn verifier: re-verification
   changed no verdict in it.
