@@ -14,6 +14,18 @@ def test_context_reference_arabic_with_spelling_variants():
     assert not has_context_reference("ما الذي قررته الجمعية العامة بشأن الأسلحة الصغيرة؟", "ar")
 
 
+def test_in_the_document_is_a_context_reference_unless_it_describes_the_document():
+    # Rejected single-hop #3 from the smoke run, in both languages.
+    assert has_context_reference("من أي دولة ينتمي السيد شيفيش المذكور في الوثيقة؟", "ar")
+    assert has_context_reference("From which State does Mr. Shafeesh mentioned in the document belong?", "en")
+    assert has_context_reference("ما الرقم الوارد في النص؟", "ar")
+    assert has_context_reference("According to the report, how many refugees are there?", "en")
+    # Bridge #11's phrasing describes the document and must stay allowed.
+    assert not has_context_reference("في الوثيقة التي طلبت الجمعية العامة من الأمين العام تقديم اقتراح شامل، أي مادة؟", "ar")
+    assert not has_context_reference("In the document that the General Assembly requested, which rule is reaffirmed?", "en")
+    assert not has_context_reference("According to the report of the Secretary-General on refugees, how many are there?", "en")
+
+
 def test_document_numbers_detected_in_both_scripts():
     assert mentions_document_number("What did A/47/10 recommend?", "en")
     assert mentions_document_number("What did resolution 47/33 request?", "en")

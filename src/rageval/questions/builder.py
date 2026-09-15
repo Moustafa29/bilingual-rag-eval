@@ -11,7 +11,10 @@ Single-hop, per candidate chunk:
      the translated answer. The verified span becomes the target-language reference answer,
      because it is the passage's official wording.
 
-Bridge (two-hop), per candidate (A cites document B):
+Bridge (two-hop), per candidate (A cites document B). Every bridge prompt shows each passage with a
+header naming its document symbol. Without it the citation link exists only in metadata: B's text
+names its own symbol in 3 of 233 candidates, so a verifier could never connect A's description of
+B to B's content.
   1. generate from both source passages; the answer must be in B and the question must not
      contain a document symbol or resolution number.
   2. translate, as above.
@@ -50,6 +53,10 @@ class Prompts:
 
 def format_passages(passages: list[str]) -> str:
     return "\n\n".join(f"Passage {i}:\n<<<\n{p}\n>>>" for i, p in enumerate(passages, 1))
+
+
+def with_header(chunk: dict, lang: str) -> str:
+    return f"{chunk['header']}\n{chunk[lang]}"
 
 
 @dataclass
@@ -165,6 +172,8 @@ class QuestionBuilder:
                     "generate_bridge",
                     lang_name=LANG_NAMES[src],
                     symbol=symbol,
+                    header_a=chunk_a["header"],
+                    header_b=chunk_b["header"],
                     passage_a=chunk_a[src],
                     passage_b=chunk_b[src],
                 ),
@@ -189,12 +198,12 @@ class QuestionBuilder:
                 raise _Rejected("document_number_in_question_translated")
 
             q_en, a_en = (q, a) if src == "en" else (q_tgt, a_tgt)
-            for name, passage in (("b", chunk_b["en"]), ("a", chunk_a["en"])):
-                span = self._verify("en", q_en, [passage], attempt)
+            for name, chunk in (("b", chunk_b), ("a", chunk_a)):
+                span = self._verify("en", q_en, [with_header(chunk, "en")], attempt)
                 if span is not None and token_f1(span, a_en, "en") >= self.f1_threshold:
                     raise _Rejected(f"shortcut_{name}_alone")
 
-            span = self._verify(tgt, q_tgt, [chunk_a[tgt], chunk_b[tgt]], attempt)
+            span = self._verify(tgt, q_tgt, [with_header(chunk_a, tgt), with_header(chunk_b, tgt)], attempt)
             if span is None:
                 raise _Rejected("not_answerable_translated")
             if not contains_span(chunk_b[tgt], span, tgt):

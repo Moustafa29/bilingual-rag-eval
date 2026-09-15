@@ -20,6 +20,7 @@ import numpy as np
 from tqdm import tqdm
 
 from rageval.corpus.chunking import AlignmentError, TokenCounter, build_beads, make_chunks
+from rageval.corpus.numbers import audit_numbers, correct_reversed_numbers
 from rageval.corpus.remote_zip import RemoteZip
 from rageval.corpus.symbols import doc_key, find_references, symbol_key
 from rageval.corpus.tei import parse_tei
@@ -170,18 +171,46 @@ def main() -> None:
         if not doc_chunks:
             dropped["no_chunks"] += 1
             continue
+        # The document symbol, kept apart from the chunk text. Bridge prompts show it so the citation
+        # link between two passages is visible; retrieval indexes only the text.
+        for c in doc_chunks:
+            c["header"] = f"Document {en.symbol}" if en.symbol else ""
         chunks.extend(doc_chunks)
 
-    prefix, limit = ch["passage_prefix"], ch["model_max_tokens"]
-    for lang in LANGS:
-        counts = counter([c[lang] for c in chunks], prefix=prefix, special_tokens=True)
-        for c, n in zip(chunks, counts):
-            c[f"{lang}_tokens"] = n
+    # Arabic digit-group reversal (rageval.corpus.numbers). Audit the text as distributed, keep that
+    # version as a separate corpus to measure what the defect costs retrieval, then correct.
+    uncorrected = [dict(c) for c in chunks]
+    forms_before: Counter[str] = Counter()
+    forms_after: Counter[str] = Counter()
+    numbers_corrected = chunks_corrected = 0
     for c in chunks:
-        c["truncated_e5"] = max(c["en_tokens"], c["ar_tokens"]) > limit
+        forms_before.update(audit_numbers(c["en"], c["ar"]))
+        c["ar"], c["numbers_corrected"] = correct_reversed_numbers(c["en"], c["ar"])
+        forms_after.update(audit_numbers(c["en"], c["ar"]))
+        numbers_corrected += c["numbers_corrected"]
+        chunks_corrected += c["numbers_corrected"] > 0
+
+    prefix, limit = ch["passage_prefix"], ch["model_max_tokens"]
+    for variant in (chunks, uncorrected):
+        for lang in LANGS:
+            counts = counter([c[lang] for c in variant], prefix=prefix, special_tokens=True)
+            for c, n in zip(variant, counts):
+                c[f"{lang}_tokens"] = n
+        for c in variant:
+            c["truncated_e5"] = max(c["en_tokens"], c["ar_tokens"]) > limit
+
+    def truncation(variant: list[dict]) -> dict[str, int]:
+        over = [c for c in variant if c["truncated_e5"]]
+        return {
+            "total": len(over),
+            "ar_only": sum(c["ar_tokens"] > limit >= c["en_tokens"] for c in over),
+            "en_only": sum(c["en_tokens"] > limit >= c["ar_tokens"] for c in over),
+            "both": sum(c["ar_tokens"] > limit and c["en_tokens"] > limit for c in over),
+        }
 
     out_dir = data / "corpus" / "unpc"
     write_jsonl(out_dir / "chunks.jsonl", chunks)
+    write_jsonl(data / "corpus" / "unpc_uncorrected" / "chunks.jsonl", uncorrected)
     ratios = [c["ar_tokens"] / c["en_tokens"] for c in chunks]
     stats.update(
         {
@@ -192,7 +221,12 @@ def main() -> None:
             "tokens_en": percentiles([c["en_tokens"] for c in chunks]),
             "tokens_ar": percentiles([c["ar_tokens"] for c in chunks]),
             "ar_to_en_token_ratio": {"median": float(np.median(ratios)), "mean": float(np.mean(ratios))},
-            "truncated_e5": sum(c["truncated_e5"] for c in chunks),
+            "truncated_e5": truncation(chunks),
+            "truncated_e5_uncorrected": truncation(uncorrected),
+            "arabic_number_forms_as_distributed": dict(forms_before.most_common()),
+            "arabic_number_forms_after_correction": dict(forms_after.most_common()),
+            "numbers_corrected": numbers_corrected,
+            "chunks_with_corrections": chunks_corrected,
         }
     )
     (out_dir / "stats.json").write_text(json.dumps(stats, indent=2), encoding="utf-8")

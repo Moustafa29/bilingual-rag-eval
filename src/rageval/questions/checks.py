@@ -37,6 +37,18 @@ _CONTEXT_AR = tuple(
     )
 )
 
+# "In the document" on its own points at a passage the user never saw; "in the document that the
+# Assembly requested..." describes one, which is how a bridge question must refer to a document.
+_DESCRIBED_EN = r"(?:that|which|entitled|on|of|by|concerning|submitted|issued|dated|prepared|in which)"
+_CONTEXT_EN_DOCUMENT = re.compile(
+    rf"\b(?:in|from|according to|mentioned in|referred to in)\s+the\s+(?:document|report)\b(?!\s+{_DESCRIBED_EN}\b)",
+    re.IGNORECASE,
+)
+_CONTEXT_AR_DOCUMENT = re.compile(
+    normalize("في", "ar")
+    + r" (?:الوثيقه|النص|المقطع|المقتطف)(?!\s+(?:التي|الذي|المتعلقه|المعنونه|الصادره|المقدمه|المؤرخه|بشان|عن|حول)\b)"
+)
+
 # A document symbol or "n/m" resolution number in a bridge question gives BM25 an exact-match
 # shortcut to the second document, which defeats the point of a two-step question.
 _DOCUMENT_NUMBER = re.compile(r"[a-z]+/[\w.]*\d|\b\d{1,4}\s*/\s*\d{1,4}\b")
@@ -44,9 +56,9 @@ _DOCUMENT_NUMBER = re.compile(r"[a-z]+/[\w.]*\d|\b\d{1,4}\s*/\s*\d{1,4}\b")
 
 def has_context_reference(question: str, lang: str) -> bool:
     if lang == "en":
-        return bool(_CONTEXT_EN.search(question))
+        return bool(_CONTEXT_EN.search(question) or _CONTEXT_EN_DOCUMENT.search(question))
     text = normalize(question, "ar")
-    return any(phrase in text for phrase in _CONTEXT_AR)
+    return any(phrase in text for phrase in _CONTEXT_AR) or bool(_CONTEXT_AR_DOCUMENT.search(text))
 
 
 def mentions_document_number(question: str, lang: str) -> bool:

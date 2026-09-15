@@ -13,11 +13,13 @@ SINGLE = {
 }
 CHUNK_A = {
     "chunk_id": "2006/a/61/1#0002",
+    "header": "Document A/61/1",
     "en": "The Assembly requested the Secretary-General to report on illicit trade in small arms (A/60/88) at its next session.",
     "ar": "طلبت الجمعية إلى الأمين العام تقديم تقرير عن الاتجار غير المشروع بالأسلحة الصغيرة (A/60/88) في دورتها المقبلة.",
 }
 CHUNK_B = {
     "chunk_id": "2005/a/60/88#0001",
+    "header": "Document A/60/88",
     "en": "The report recommends that States mark all small arms at the point of manufacture.",
     "ar": "يوصي التقرير بأن تقوم الدول بوسم جميع الأسلحة الصغيرة عند صنعها.",
 }
@@ -95,10 +97,15 @@ def test_bridge_accepted_when_neither_passage_alone_suffices():
             return {"answerable": True, "answer": "جميع الأسلحة الصغيرة"}
         return {"answerable": False, "answer": ""}
 
-    attempt = QuestionBuilder(FakeClient("g", bridge_generator), FakeClient("v", verifier), PROMPTS, 0.5).bridge(CHUNK_A, CHUNK_B, "A/60/88", "en->ar")
+    generator, ver = FakeClient("g", bridge_generator), FakeClient("v", verifier)
+    attempt = QuestionBuilder(generator, ver, PROMPTS, 0.5).bridge(CHUNK_A, CHUNK_B, "A/60/88", "en->ar")
     assert attempt.status == "accepted"
     assert attempt.record["gold_chunks"] == [CHUNK_A["chunk_id"], CHUNK_B["chunk_id"]]
     assert len(attempt.calls) == 5  # generate, translate, shortcut B, shortcut A, verify both
+    # Document headers make the citation link visible to the generator and every verifier call.
+    assert "Passage B (Document A/60/88)" in generator.prompts[0]
+    assert all("Document A/60/88" in p or "Document A/61/1" in p for p in ver.prompts)
+    assert "Document A/61/1" in ver.prompts[-1] and "Document A/60/88" in ver.prompts[-1]
 
 
 def test_bridge_rejected_when_passage_b_alone_answers():

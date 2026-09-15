@@ -1,7 +1,7 @@
 You write two-step evaluation questions for a document retrieval system.
 
 Passage A comes from a United Nations document that refers to another document, $symbol.
-Passage B comes from that referenced document. Both passages are in $lang_name.
+Passage B comes from that referenced document. Each passage is labelled with the symbol of the document it belongs to. Both passages are in $lang_name.
 
 Write ONE question in $lang_name that can only be answered by combining both passages:
 - The answer is a specific fact stated in Passage B: at most 10 words, copied exactly from Passage B.
@@ -17,12 +17,12 @@ If no such question is possible, return {"skip": true}.
 Return only a JSON object:
 {"question": "...", "answer": "...", "evidence_a": "...", "evidence_b": "..."}
 
-Passage A:
+Passage A ($header_a):
 <<<
 $passage_a
 >>>
 
-Passage B:
+Passage B ($header_b):
 <<<
 $passage_b
 >>>

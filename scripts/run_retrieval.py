@@ -21,6 +21,7 @@ import argparse
 import time
 from pathlib import Path
 
+from rageval.eval.corpora import QUESTION_FILES
 from rageval.io import read_jsonl, write_jsonl
 from rageval.retrieval.analyzers import analyze
 from rageval.retrieval.bm25 import BM25
@@ -33,8 +34,7 @@ LANGS = ("en", "ar")
 
 
 def corpus_paths(data: Path, corpus: str) -> tuple[Path, Path]:
-    questions = {"xquad": "xquad.jsonl", "unpc": "unpc_pilot.jsonl"}[corpus]
-    return data / "corpus" / corpus / "chunks.jsonl", data / "questions" / questions
+    return data / "corpus" / corpus / "chunks.jsonl", data / "questions" / QUESTION_FILES[corpus]
 
 
 def run_path(data: Path, corpus: str, config: str, qlang: str, dlang: str) -> Path:
@@ -52,7 +52,7 @@ def read_run(path: Path) -> dict[str, list[str]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--corpus", choices=["xquad", "unpc"], required=True)
+    parser.add_argument("--corpus", choices=sorted(QUESTION_FILES), required=True)
     parser.add_argument("--configs", required=True)
     parser.add_argument("--data", default="data")
     parser.add_argument("--cross-lingual", action="store_true")
