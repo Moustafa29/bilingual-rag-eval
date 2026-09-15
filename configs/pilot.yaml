@@ -72,6 +72,13 @@ questions:
       max_completion_tokens: 512
       response_format: {type: json_object}
 
+generation:
+  k: 5   # passages given to the answering model; Recall@5 is the retrieval ceiling for generation
+  # answerer and judge are deliberately unset: choosing them is a pending decision (free or local
+  # answerer; stronger paid judge within the $20 cap, cost quoted before any paid run).
+  # answerer: {base_url: ..., api_key_env: ..., model: ..., params: {...}}
+  # judge:    {base_url: ..., api_key_env: ..., model: ..., params: {...}}
+
 audit:
   n: 100
   # Accepted smoke-run questions the context filter missed. They stay in the audit on purpose, so the

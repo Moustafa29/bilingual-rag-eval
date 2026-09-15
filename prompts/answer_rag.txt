@@ -1,0 +1,10 @@
+Answer the question using only the passages below.
+
+- Answer in $lang_name, in as few words as possible: a name, number, date or short phrase.
+- If the passages do not contain the answer, reply exactly: NOT_IN_CONTEXT
+
+Question: $question
+
+$passages
+
+Answer:

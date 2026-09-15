@@ -1,0 +1,8 @@
+Answer the question from your own knowledge.
+
+- Answer in $lang_name, in as few words as possible: a name, number, date or short phrase.
+- If you do not know, reply exactly: UNKNOWN
+
+Question: $question
+
+Answer:

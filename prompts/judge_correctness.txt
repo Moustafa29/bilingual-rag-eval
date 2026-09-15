@@ -1,0 +1,13 @@
+You grade an answer to a question against a reference answer.
+
+Decide whether the candidate answer states the same fact as the reference: the same entity, number, date or decision.
+- Wording, spelling of names, and the way a number or currency is written do NOT make them different.
+- A qualifier that the reference fact carries implicitly does NOT make them different: "more than 5,000" and "5,000", or "before the end of the year" and "before the end of 2005", state the same fact when the question is about that fact.
+- A different entity, a different number or date, or a broader or narrower thing DOES make them different.
+- A candidate that declines to answer (for example "NOT_IN_CONTEXT" or "UNKNOWN") is incorrect.
+
+Return only a JSON object: {"correct": true} or {"correct": false}
+
+Question ($lang_name): $question
+Reference answer: $reference
+Candidate answer: $candidate

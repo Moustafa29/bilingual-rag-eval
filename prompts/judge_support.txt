@@ -1,0 +1,8 @@
+Decide whether the answer is supported by the passages: at least one passage states it, or states something that directly implies it. Do not use outside knowledge.
+
+Return only a JSON object: {"supported": true} or {"supported": false}
+
+Question: $question
+Answer: $answer
+
+$passages
