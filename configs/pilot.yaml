@@ -61,11 +61,13 @@ questions:
   verifier:  # also judges answer equivalence and comparison choices
     base_url: https://api.groq.com/openai/v1
     api_key_env: GROQ_API_KEY
-    model: qwen/qwen3.6-27b
+    # qwen/qwen3.6-27b (a Groq preview model) was withdrawn on 2026-09-15 with no deprecation notice.
+    # Every single-hop and numeric candidate was re-verified with this model (scripts/reverify.py).
+    model: qwen/qwen3.8-27b
     params:
       temperature: 0
       seed: 20260915
-      reasoning_effort: none      # qwen3.6-27b accepts none | default
+      reasoning_effort: none      # qwen3.8-27b accepts none | default | low | medium | high
       reasoning_format: hidden    # Groq: JSON mode requires parsed or hidden, not raw
       max_completion_tokens: 512
       response_format: {type: json_object}
