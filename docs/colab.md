@@ -32,6 +32,32 @@ Order matters: hybrid and rerank configs read the runs they combine.
 ```
 
 - **Reranker cost:** 1,190 questions × 2 languages × 50 passages = 119,000 cross-encoder passes.
+
+## UN corpus: corrected vs. uncorrected Arabic numbers
+
+`unpc` has the Arabic digit groups corrected; `unpc_uncorrected` is the text as distributed. Both
+have identical chunk ids and English text and use the same question file. Upload
+`data/corpus/unpc/`, `data/corpus/unpc_uncorrected/` and `data/questions/unpc_pilot.jsonl` from
+the laptop.
+
+BM25 runs on the laptop; the dense models need the T4.
+
+```
+!python scripts/run_retrieval.py --corpus unpc --configs bm25-raw,bm25-norm,bm25-light
+!python scripts/run_retrieval.py --corpus unpc_uncorrected --configs bm25-raw,bm25-norm,bm25-light
+!python scripts/run_retrieval.py --corpus unpc --configs e5-base,bge-m3 --cross-lingual --device cuda
+!python scripts/run_retrieval.py --corpus unpc_uncorrected --configs e5-base,bge-m3 --device cuda
+!python scripts/evaluate.py --corpus unpc
+!python scripts/evaluate.py --corpus unpc --subset numeric --baseline-corpus unpc_uncorrected
+```
+
+- **Sanity check:** in the last command, every en-en row of "unpc − unpc_uncorrected" must be
+  exactly zero, because the correction does not touch English text. A non-zero English
+  difference means the two runs differ for some other reason, and the Arabic difference cannot
+  be attributed to the correction.
+- **Embedding time:** 33,476 chunks per language. Arabic passages are re-embedded for
+  `unpc_uncorrected` (its text differs); the English embeddings are the same text, but the cache
+  key covers the whole list, so they are re-encoded too.
 - **Embedding cache:** embeddings are stored under `data/embeddings/`, keyed by content, so
   re-running evaluation or adding a hybrid config does not re-encode anything.
 - **What to bring back:** download `data/runs/xquad/` and `data/results/xquad/retrieval.json`.

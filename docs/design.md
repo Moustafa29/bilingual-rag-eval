@@ -614,6 +614,9 @@ beyond that is flagged as a scale-up decision, not done by default.
 | Lexical overlap computed at build time | Deferred to Phase 3 | It must use the same analyzers as BM25 (normalized, light-stemmed), which are Phase 3 code. |
 | "A few thousand documents" | 1,250 documents (1,000 seed + 250 cited), 33,476 chunks; cut from a first build of 2,000 documents / 53,587 chunks | Embedding twice per model on a free T4 at 53k chunks was hours per iteration while the pipeline was still finding bugs, with no gain in validity. Cut before any questions were built on it. |
 | Phase 3 waits for the UN questions | Phase 3 retrieval and metric code is built and tested against XQuAD while the UN questions generate | Groq's daily quota spreads question generation over days; XQuAD needs no API calls. |
+| Answer acceptance by token F1 ≥ 0.5 | Verifier judgement of whether two answers state the same fact; F1 recorded only | F1 accepted a wrong answer (the Habitat Agenda vs. the UN Human Settlements Programme, F1 0.75). See `docs/corpus.md` §3. |
+| Multi-hop: bridge and comparison questions | **None in the pilot.** Citation bridges 0/20 (three runs), comparison questions 0/20; both stopped at a pre-set threshold of 5/20 | Citation links exist only in metadata and describe cited documents by title; shared subject terms give topical, not parallel, pairs. Documented as negative results. |
+| Numeric answers occur at their natural rate | A 40-question numeric group from chunks with corrected Arabic numbers | Needed for a confidence interval on what the digit-group correction is worth. |
 
 **What `multilingual-e5-large` would likely change** (expectation, not measured):
 e5-large has ~560M parameters against base's ~280M, with the same 512-token limit and

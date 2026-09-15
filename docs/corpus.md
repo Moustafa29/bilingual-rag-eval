@@ -26,6 +26,52 @@ counted in the XLM-R tokenizer shared by `multilingual-e5-base` and `bge-m3`.
 - **Scale:** 0.15% of chunks. It's a mechanism, not a headline effect size, and it stays
   measurable in Phase 3 because `bge-m3` (8,192-token limit) does not truncate these chunks.
 
+## Second result: Arabic numbers are stored with reversed digit groups
+
+In the UN corpus as distributed, **3,598 of 4,003 numbers (89.9%)** that English writes with
+thousands separators appear in the aligned Arabic chunk with their digit groups in reverse
+order. English `50,000` is stored as `000 50`, and `278,707` as `707 278`. It happens in every
+year from 1993 to 2014. The cause is not verified.
+
+| How the Arabic chunk writes the English number | As distributed | After correction |
+|---|---|---|
+| Reversed groups (`707 278`) | **3,598** | 1 |
+| Forward groups (`278 707`) | 15 | 3,612 |
+| With comma (`278,707`) | 175 | 175 |
+| Joined (`278707`) | 22 | 22 |
+| Not found in the Arabic chunk | 193 | 193 |
+
+**Why it matters.** Left in place, this is an Arabic-only defect that would look like a language
+effect:
+- **BM25:** an Arabic query containing "50,000" cannot match `000 50`.
+- **Embeddings:** the models read the digits in the wrong order.
+- **Answer scoring:** numeric answers fail exact-match checks.
+
+Any Arabic–English retrieval gap measured on the uncorrected text would include this storage
+artifact, and it would be indistinguishable from a real language effect in the results table.
+
+**Correction** (`rageval.corpus.numbers`):
+- **Alignment-guided:** a reversed sequence is rewritten only when the aligned English chunk
+  contains the same number in normal order. No Arabic number is changed on the strength of the
+  Arabic text alone.
+- **Formatting preserved:** digit script (Western or Arabic-Indic) and separator characters are
+  kept; only the group order changes.
+- **Scale:** 3,600 corrections in 1,604 chunks.
+  - Corrections exceed the reversed count by 2 because a number written once in English can
+    appear more than once in its Arabic chunk.
+  - The one remaining reversed match is `000 517 1` (1,517,000) in a chunk whose English says
+    1,517: a different figure, correctly left alone.
+
+**Uncorrected copy.** The text as distributed is kept as a separate corpus, `unpc_uncorrected`,
+with identical chunk ids and English text. `scripts/evaluate.py --subset numeric
+--baseline-corpus unpc_uncorrected` measures what the correction is worth on questions that
+involve such numbers. The comparison needs a question set with enough of them; see §3.
+
+**How the count was established.** An ad-hoc measurement first gave 3,405 of 3,798. A unit test
+written for the committed version showed that the number pattern skipped numbers followed by a
+clause comma ("$1,974,200, and …"). The fixed pattern finds 205 more numbers; the reversed share
+barely moves (89.7% → 89.9%).
+
 ## 1. UN Parallel Corpus subsample
 
 ### Source and access
@@ -180,6 +226,136 @@ All three were caught during Phase 2 and fixed before any questions were built.
 ## 3. Question set
 
 See `rageval.questions.builder` for the step-by-step pipeline and the reason each step exists.
+
+### Metric-design failure: a 0.5 token-overlap threshold accepted a wrong answer
+
+The first pipeline accepted a question when the verifier's answer span, found in the
+target-language passage, shared at least half its tokens with the blind translation of the
+source answer (token F1 ≥ 0.5). That rule let a wrong answer into the question set.
+
+| | |
+|---|---|
+| Question (en) | Which agenda is referenced in the General Assembly resolution that admitted UN-Habitat as a full member of the Inter-Agency Standing Committee? |
+| Source answer (en) | **the Habitat Agenda** |
+| Blind translation of the answer (ar) | برنامج المستوطنات البشرية ("Human Settlements *Programme*") |
+| Verified span in the Arabic passage | برنامج الأمم المتحدة للمستوطنات البشرية ("**UN Human Settlements Programme**", the organization) |
+| Token F1 | **0.75**, accepted |
+
+**How it failed:**
+1. The translator rendered "Agenda" as "Programme" (برنامج).
+2. The verifier then found a real Programme in the passage, UN-Habitat itself.
+3. The two Arabic strings share المستوطنات البشرية ("human settlements"). Overlap measures
+   shared words, not shared meaning, so it passed a different entity.
+
+**The threshold was fragile, not just unlucky.** Four of the fourteen single-hop questions
+accepted in the same run scored 0.50, 0.55, 0.55 and 0.55. All four turned out to be correct:
+- "CAD 42.2 million per year" against "CAN$ 42.2 million annually"
+- "US$ 10,509,700" against "10 509 700 من دولارات الولايات المتحدة"
+- "Human Resources Managers Network" against "Africa Public Sector Human Resource Managers' Network"
+- "السيدة MOTOC" against "السيدة موتوك" (the same name in Latin and Arabic script)
+
+They were correct by luck. The same score range contains correct answers written differently and
+a wrong answer that happens to share words, and the threshold cannot tell them apart. That is
+worse in Arabic, where multi-word institutional names share many tokens (الأمم المتحدة,
+المستوطنات البشرية) across different entities.
+
+**Replacement.** The verifier now judges whether the source answer and the verified target span
+state the same fact (`prompts/judge_equivalence.txt`). F1 is still recorded on every question
+(`answer_f1_vs_translation`) but no longer decides.
+- **Validation on the known case:** the judgement rejects the Habitat answer. The prompt's
+  examples do not include it.
+- **All 5 of its rejections in the revalidation run were inspected, and all 5 are correct:**
+  the Habitat case, a section letter "جيم" (C) mistranslated as the name "Jim", and three bridge
+  answers where the verifier found a different fact from the one generated.
+- **Not yet measured:** its false-rejection rate on correct answers. The human audit of 100
+  judgement decisions covers that.
+
+### Multi-hop questions: two negative results
+
+Both two-passage constructions were tested on 20 candidates against a threshold fixed in
+advance: fewer than 5 accepted means stop. Both stopped. The pilot therefore has no multi-hop
+questions.
+
+**1. Citation bridges** (passage A cites document B; the question needs a fact from B,
+identifying B only through A).
+
+| Run | Accepted | Main rejection reasons |
+|---|---|---|
+| First | 0/20 | not answerable after translation 7, B alone answers 6 |
+| + document-symbol headers | 1/20, and that one was the Habitat false accept | evidence not in passage 5, answer mismatch 5, B alone answers 5 |
+| + strict shortcut rule and same-answer judgement | **0/20** | B alone answers 10, answers state different facts 4 |
+
+- **The link exists only in metadata.** Passage B's text names its own document symbol in 3 of
+  233 candidates, so without headers nothing in the text connects A's description to B's
+  content. Headers fixed this: "not answerable" fell from 7 to 1.
+- **A UN citation rarely describes the cited document beyond its title.** A is often an agenda
+  line or a report title, so the only description available is B's own topic, and B alone then
+  answers the question. That rejection rate doubled once any single-passage answer counted.
+- **Weak answer spans.** When a link did exist, the generator's spans were poor: whole clauses,
+  answers restating the question, fragments.
+
+This is a property of the corpus, not a prompt bug.
+
+**2. Comparison questions** (two documents indexed under the same UNBIS subject term; the
+question names one subject from each and asks which one an attribute favours).
+
+| Run | Accepted | Rejection reasons |
+|---|---|---|
+| Only run | **0/20** | generator declined the pair 15, one passage alone decides 3, option not named in question 1, context reference 1 |
+
+- **A shared subject term is topical, not parallel.** Pairs under WESTERN SAHARA, CHEMICAL
+  WEAPONS or LEBANON are about the same topic but rarely state the same attribute for two
+  comparable subjects. One chunk records Iraq's destruction of chemical weapons; its pair lists
+  what Syria must declare.
+- **The comparisons the generator did produce were contrived.** UNDP's funding target against
+  UNITAR's 1996 surplus; a 1995 house search against a 2009 justice reform. One passage plus
+  common knowledge of dates decided them.
+
+**What this costs the project.** The pilot has no multi-hop questions. AllRecall@k, where
+hybrid retrieval and reranking were expected to separate from dense-only retrieval, cannot be
+reported from this question set. Phase 5's query-decomposition test also needs another source of
+multi-subject questions.
+
+### Numeric group (40 questions)
+
+Single-hop questions answered by a grouped number, drawn from chunks where the Arabic digit groups
+were corrected. The group exists so the corrected-vs-uncorrected comparison has enough questions for
+a confidence interval.
+
+| Run | Attempted | Accepted | Main rejections |
+|---|---|---|---|
+| First | 102 | 34 (20 en→ar, 14 ar→en), then stopped at the daily token limit | answer "not a grouped number" 42, context reference 16 |
+| After the two fixes below | 54 | **40 (20 en→ar, 20 ar→en)** | context reference 6, answers state different facts 4 |
+
+The first run exposed two check bugs, both affecting only Arabic-source questions:
+
+1. **Space-grouped answers rejected.**
+   - *Symptom:* all 42 "not a grouped number" rejections were ar→en.
+   - *Cause:* the blind English translation kept the Arabic grouping ("75 000", "31 523 100
+     dollars"), and the answer check accepted only commas.
+   - *Cost:* those 42 rejections consumed most of that day's generator quota.
+   - *Fix:* answers now accept comma or space grouping. The corpus audit pattern is unchanged, so
+     the 3,598 of 4,003 figures stand.
+2. **Arabic "according to the document" missed on the source side.**
+   - *Symptom:* 12 of the 16 context-reference rejections were Arabic questions saying وفقًا للوثيقة,
+     وفقًا للتقرير or حسب النص. They passed the Arabic filter and were caught only after
+     translation into English.
+   - *Fix:* the Arabic filter now catches them before translation.
+   - *What it shows about the generator:* the Arabic-source generator produced such questions in 16
+     of about 60 ar→en attempts, although the prompt forbids referring to the document.
+
+The combined run used 31 network calls, all on the verifier. The 42 recovered candidates already
+had their generation and translation cached.
+
+### Context-reference filter: measured, not assumed
+
+- **Caught:** smoke question #5, "according to the mentioned decision" / وفقاً للقرار المذكور,
+  once the phrase list was extended.
+- **Still missed:** smoke question #10, "How many topics were discussed at the meeting?", which
+  never says which meeting.
+- **Audit plan:** both stay flagged in the audit export (`audit.flag_chunks`), and every
+  filter rejection is exported with its question text. The audit measures misses and false
+  rejections instead of assuming either.
 
 **Candidates available** (`--dry-run`, no API calls):
 - **Single-hop:** 250, the cap.
