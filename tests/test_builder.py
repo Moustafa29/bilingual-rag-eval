@@ -147,6 +147,19 @@ def test_numeric_mode_accepts_a_corrected_number():
     assert "digit groups" in generator_client.prompts[0]
 
 
+def test_numeric_mode_accepts_space_grouped_translation_of_arabic_source():
+    def generator(prompt):
+        if prompt.startswith("Translate"):
+            return {"question": "How many people displaced in the August 2008 conflict had been relocated by January 2010?", "answer": "21 456 people"}
+        return {"question": "كم عدد الأشخاص الذين تم نقلهم حتى كانون الثاني/يناير 2010؟", "answer": "21 456 شخصا", "evidence": NUMERIC["ar"]}
+
+    verifier = FakeClient("v", single_verifier(answer="21,456 individuals"))
+    attempt = QuestionBuilder(FakeClient("g", generator), verifier, PROMPTS).single(
+        NUMERIC, "ar->en", kind="numeric", prompt="generate_numeric", require_number=True
+    )
+    assert attempt.status == "accepted"
+
+
 def choose_by_text(prompt, wanted):
     shown = dict(re.findall(r"^Option ([12]): (.*)$", prompt, re.M))
     return {"choice": next((int(k) for k, v in shown.items() if v == wanted), None)}

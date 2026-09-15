@@ -61,6 +61,16 @@ def test_palindromic_groups_are_left_alone():
     assert correct_reversed_numbers("200,200", "200 200") == ("200 200", 0)
 
 
+def test_answer_numbers_accept_space_grouping_from_arabic_sources():
+    from rageval.corpus.numbers import has_grouped_number
+
+    # Translations of Arabic-source answers from the first numeric run, all wrongly rejected at the time.
+    for answer in ("75 000", "31 523 100 dollars", "1 995 times", "25 000", "184 700 dollars", "21,456 individuals", "٢٥ ٠٠٠"):
+        assert has_grouped_number(answer), answer
+    for not_grouped in ("in 1995", "2.9 million", "about 500 people", "resolution 47/33", "12,3456"):
+        assert not has_grouped_number(not_grouped), not_grouped
+
+
 def test_numeric_question_subset():
     assert has_thousands_number("2.9 million") is False
     assert has_thousands_number("278,707 persons") is True

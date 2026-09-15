@@ -34,6 +34,20 @@ def test_the_mentioned_decision_is_a_context_reference():
     assert not has_context_reference("ما الذي قرره مجلس الأمن في قراره بشأن الصومال؟", "ar")
 
 
+def test_arabic_according_to_the_document_is_caught_on_the_source_side():
+    # Arabic-source questions from the numeric run that were caught only after translation.
+    assert has_context_reference("كم عدد اللاجئين الذين فروا إلى تشاد وفقًا للوثيقة؟", "ar")
+    assert has_context_reference("ما هو مقدار التخفيض المالي الذي لاحظته المجموعة وفقًا للتقرير؟", "ar")
+    assert has_context_reference("ما هو عدد الأشخاص المصابين بالمهق في بعض أنحاء أفريقيا حسب النص؟", "ar")
+    assert has_context_reference("كم عدد الهكتارات التي ذكرها النص في مشروع إعادة التحريج؟", "ar")
+    # Described documents stay allowed, and ordinary "according to" phrases are untouched.
+    assert not has_context_reference("وفقًا للوثيقة التي قدمها الأمين العام، كم عدد اللاجئين؟", "ar")
+    assert not has_context_reference("كم عدد اللاجئين وفقًا لتقديرات المفوضية؟", "ar")
+    # Longer words that merely start with the noun are not references to an unseen passage.
+    assert not has_context_reference("ما هي الدول الملزمة وفقًا لنصوص الاتفاقية؟", "ar")
+    assert not has_context_reference("ما الحقوق التي تذكرها النصوص الدولية؟", "ar")
+
+
 def test_document_numbers_detected_in_both_scripts():
     assert mentions_document_number("What did A/47/10 recommend?", "en")
     assert mentions_document_number("What did resolution 47/33 request?", "en")

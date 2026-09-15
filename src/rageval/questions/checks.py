@@ -52,9 +52,17 @@ _CONTEXT_EN_DOCUMENT = re.compile(
     rf"\b(?:in|from|according to|mentioned in|referred to in)\s+the\s+(?:document|report)\b(?!\s+{_DESCRIBED_EN}\b)",
     re.IGNORECASE,
 )
+_DESCRIBED_AR = r"(?!\s+(?:التي|الذي|المتعلقه|المعنونه|الصادره|المقدمه|المؤرخه|بشان|عن|حول)\b)"
 _CONTEXT_AR_DOCUMENT = re.compile(
-    normalize("في", "ar")
-    + r" (?:الوثيقه|النص|المقطع|المقتطف)(?!\s+(?:التي|الذي|المتعلقه|المعنونه|الصادره|المقدمه|المؤرخه|بشان|عن|حول)\b)"
+    # "in the document / text / excerpt"
+    r"في (?:الوثيقه|النص|المقطع|المقتطف)" + _DESCRIBED_AR
+    # "according to the document / report / text" (وفقا للوثيقة، حسب النص): the numeric run's Arabic-source
+    # questions used these 12 times and were caught only after translation into English
+    # The noun must end the word: "وفقا لنصوص الاتفاقية" (according to the texts of the agreement) is not
+    # a reference to an unseen passage.
+    + r"|(?:وفقا|طبقا|حسب|بحسب) (?:لل|ل|ال)?(?:وثيقه|تقرير|نص)(?!\w)" + _DESCRIBED_AR
+    # "mentioned by the text" (ذكرها النص), again as a whole word
+    + r"|ذكر(?:ها|ه|ت)? النص(?!\w)"
 )
 
 # A document symbol or "n/m" resolution number in a bridge question gives BM25 an exact-match

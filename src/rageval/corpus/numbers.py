@@ -40,9 +40,21 @@ def has_thousands_number(text: str) -> bool:
     return bool(EN_THOUSANDS.search(text))
 
 
+# A grouped number in a generated or translated *answer*: groups separated by a comma or by a space-like
+# character. English corpus text writes 21,456, but a translation of an Arabic-source answer keeps the
+# Arabic grouping, "21 456". The first numeric run rejected all 42 such answers because only commas were
+# accepted. A plain year such as 1995 is not grouped and does not match. EN_THOUSANDS, which drives the
+# corpus audit and correction, is deliberately unchanged.
+ANSWER_GROUPED_NUMBER = re.compile(rf"(?<!{_DIGIT})(?<![.,]){_DIGIT}{{1,3}}(?:(?:,|{_SEP}){_DIGIT}{{3}})+(?!{_DIGIT}|,{_DIGIT})")
+
+
+def has_grouped_number(text: str) -> bool:
+    return bool(ANSWER_GROUPED_NUMBER.search(text))
+
+
 def is_numeric_question(question: dict) -> bool:
-    """Questions touched by the reversal: a thousands-separated number in the English question or answer."""
-    return has_thousands_number(question["question"]["en"]) or has_thousands_number(question["answer"]["en"])
+    """Questions touched by the reversal: a grouped number in the English question or answer."""
+    return has_grouped_number(question["question"]["en"]) or has_grouped_number(question["answer"]["en"])
 
 
 def audit_numbers(en: str, ar: str) -> Counter:

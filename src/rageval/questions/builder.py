@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template
 
-from rageval.corpus.numbers import has_thousands_number
+from rageval.corpus.numbers import has_grouped_number
 from rageval.llm.client import DailyLimitReached
 from rageval.questions.checks import has_context_reference, is_true, mentions_document_number, parse_json_object
 from rageval.text import contains_evidence, contains_span, normalize, token_f1
@@ -169,11 +169,11 @@ class QuestionBuilder:
                 raise _Rejected("answer_not_in_passage")
             if has_context_reference(q, src):
                 raise _Rejected("context_reference")
-            if require_number and src == "en" and not has_thousands_number(a):
+            if require_number and src == "en" and not has_grouped_number(a):
                 raise _Rejected("answer_not_a_thousands_number")
 
             q_tgt, a_tgt = self._translate(src, tgt, q, a, attempt)
-            if require_number and src == "ar" and not has_thousands_number(a_tgt):
+            if require_number and src == "ar" and not has_grouped_number(a_tgt):
                 raise _Rejected("answer_not_a_thousands_number")
 
             span = self._verify(tgt, q_tgt, [chunk[tgt]], attempt)
