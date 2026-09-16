@@ -249,13 +249,20 @@ See `rageval.questions.builder` for the step-by-step pipeline and the reason eac
 
 ### Evaluation fragility: what changes the question set
 
-Three changes to how questions are checked were measured, each on the same candidates:
+Four checking rules were measured. The first three decide which questions exist, each measured
+on the same candidates; the fourth decides which answers count as correct in Phase 4.
 1. A 0.5 token-overlap threshold let a wrong answer through.
 2. Swapping the verifier model changed one verdict in 68.
 3. The judgement that replaced the threshold rejects some correct answers.
+4. Exact match rejects answers the judge accepts, more often in Arabic.
 
 What decides which questions exist is mainly the checking rule, not which model version was
 available.
+
+**1 and 4 are the same failure in opposite directions.** Both measure how an answer is phrased and
+call it content. Token overlap at 0.5 accepted a wrong answer because it shared enough words with
+the reference; exact match rejects correct answers because they do not share all of them. Neither
+threshold is a statement about whether the answer is right.
 
 #### 1. A 0.5 token-overlap threshold accepted a wrong answer
 
@@ -376,6 +383,72 @@ The six same-fact rejections fall into four patterns:
 - **Not fixed:** changing the prompt would change the question set again and need another
   re-verification. The error is documented, and the human audit of 100 judgement decisions measures
   its rate on a larger sample.
+
+#### 4. Exact match rejects answers the judge accepts, more often in Arabic
+
+Measured on the contamination subset: 60 questions, both languages, two answering models, oracle
+condition, so the gold passage is always in context and retrieval is not involved.
+`python scripts/analyze_scoring.py --corpus unpc` reproduces every number here from the cache.
+
+Exact match here is already normalized (`rageval.text.answer_tokens`): Arabic orthography and
+Arabic-Indic digits folded, English articles and the Arabic definite article dropped.
+
+| Model, language | Judge accuracy | Exact-match accuracy | Judge correct, exact match wrong | Exact match correct, judge wrong |
+|---|---|---|---|---|
+| gpt-oss-20b, English | 0.983 | 0.700 | 17 / 60 | 0 |
+| gpt-oss-20b, Arabic | 0.967 | 0.567 | 24 / 60 | 0 |
+| qwen3.8-27b, English | 0.983 | 0.817 | 10 / 60 | 0 |
+| qwen3.8-27b, Arabic | 0.967 | 0.733 | 14 / 60 | 0 |
+
+**The disagreement is one-sided.** In 65 cases the judge accepted an answer exact match rejected.
+In zero cases did exact match accept an answer the judge rejected.
+
+**What the rejected answers look like.** Each answer is rewritten one step at a time and re-tested:
+
+| What would have to change | gpt-oss AR | gpt-oss EN | qwen AR | qwen EN |
+|---|---|---|---|---|
+| Same numbers, wording around them differs | 13 | 10 | 9 | 8 |
+| Wording differs, no numbers | 8 | 7 | 5 | 2 |
+| Digit grouping alone | 3 | 0 | 0 | 0 |
+
+- Dropped qualifiers and units: `14,443 persons` vs `14,443`; `some 4,130 events` vs `4,130`;
+  `US$ 186,000` vs `186,000`; `approximately 261,000` vs `261,000`.
+- The same in Arabic: `4 130 حادثة` vs `4 130`; `1 995 مرة` vs `1995`;
+  `186 000 دولار من دولارات الولايات المتحدة` vs `186,000 دولار`.
+- Added qualifiers: `1 200` vs أكثر من 1200 مؤسسة حكومية ومنظمة غير حكومية.
+
+**Digit grouping is Arabic-only, and it is the corpus's own convention.** UN Arabic writes thousands
+with a space (`2 392`), English with a comma (`2,392`). A comma survives tokenization inside one
+token; a space splits the number into two. So `2392` matches the English reference and fails the
+Arabic one. Three gpt-oss Arabic answers fail for this reason alone, against zero in English.
+
+**Is the penalty larger in Arabic?** Paired on the same questions, exact McNemar:
+
+| Model | Penalised in Arabic only | In English only | In both | p |
+|---|---|---|---|---|
+| gpt-oss-20b | 16 | 9 | 8 | 0.230 |
+| qwen3.8-27b | 11 | 7 | 3 | 0.481 |
+
+Both models show more Arabic rejections, but at n = 60 neither reaches significance. **Directional,
+not established.**
+
+**What it changes.** The measured English-minus-Arabic accuracy gap depends on which rule is used:
+
+| Model | EN − AR, judge | EN − AR, exact match |
+|---|---|---|
+| gpt-oss-20b | 0.017 | 0.133 |
+| qwen3.8-27b | 0.017 | 0.083 |
+
+Reporting exact match as generation accuracy would show a language gap that is mostly the scoring
+rule, and the part of it specific to Arabic digit grouping is a property of the corpus, not of the
+model. Exact match is therefore reported alongside judge correctness and never as the gate. The
+opposite error, the judge accepting a wrong answer, is bounded by the human audit of 100 judge
+decisions, which the judge's own agreement rates (0.883 English, 0.733 Arabic between the two
+models) cannot bound on their own.
+
+**Both directions were checked in the pre-registered contamination gate**, and they agreed on the
+decision: no stop. That agreement is a coincidence of this subset, not a reason to trust either rule
+more.
 
 ### Multi-hop questions: three measured attempts, none built
 
@@ -537,6 +610,43 @@ Whether this holds for Arabic-language instructions or other generators is not t
 
 The combined run used 31 network calls, all on the verifier. The 42 recovered candidates already
 had their generation and translation cached.
+
+### Arabic token cost, measured three ways
+
+Arabic costs more tokens than English for the same content. Three measurements, on different things,
+all in the same direction but not the same size.
+
+| Measurement | Unit | Arabic ÷ English |
+|---|---|---|
+| Chunk length, XLM-R tokenizer (the corpus table above) | tokens per aligned chunk | 1.119 median, 1.139 mean |
+| Groq answering calls, oracle condition | tokens per call | 1.30 (gpt-oss-20b), 1.23 (qwen3.8-27b) |
+| Groq prompts, fitted per character (below) | tokens per character of text | 1.64 (judge), 1.37 (answering) |
+
+**Why per character.** A prompt is an English template with fields in the answer language, so the
+ratio over a whole prompt depends on how much template it carries, not only on the language. Each
+prompt is split into constant template characters and language-specific field characters, and
+`real prompt tokens = intercept + slope × field characters` is fitted per language by least squares
+over `data/llm_usage.jsonl` (`python scripts/analyze_scoring.py`). The slope is tokens per character
+of that language; the intercept estimates the shared template.
+
+| Prompt type | Language | Calls | Tokens per character | Characters per token | Template intercept | R² |
+|---|---|---|---|---|---|---|
+| Judge | English | 120 | 0.168 | 5.95 | 230 | 0.43 |
+| Judge | Arabic | 120 | 0.275 | 3.64 | 228 | 0.51 |
+| Answering | English | 120 | 0.183 | 5.46 | 185 | 0.80 |
+| Answering | Arabic | 120 | 0.251 | 3.98 | 330 | 0.63 |
+
+- **The judge fit is the trustworthy one.** Its two intercepts agree to 2 tokens out of ~229, which
+  is the check that the split separates template from fields. The answering fit's intercepts differ
+  (185 vs 330), so its 1.37 is the weaker number: passage length varies over a much wider range
+  there, and the fit absorbs that into the intercept.
+- **Per character and per call differ because Arabic is shorter in characters.** The same content
+  takes about 0.85 of the characters (judge fields 102 vs 125 on average; oracle passages 4,794 vs
+  5,634), which cancels part of the per-character penalty. 1.37–1.64 per character becomes 1.23–1.30
+  per call.
+- **The 3.5 characters-per-token rule used by the dry runs is an over-estimate**, measured against
+  the 181 judge calls of the contamination subset: 3.89 characters per token in English, 3.71 in
+  Arabic, 3.79 overall. Dry-run totals are therefore an upper bound, by about 8%.
 
 ### Context-reference filter: measured, not assumed
 

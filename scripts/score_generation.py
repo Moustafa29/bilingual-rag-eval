@@ -85,14 +85,25 @@ def main() -> None:
     if args.judge_dry_run:
         if judge is None:
             raise SystemExit("--judge-dry-run needs --correctness judge and/or --support")
-        pending = []
+        # Deduplicate by cache key: two models that produce the same answer render the same judge prompt,
+        # and the second one is a cache hit, not a call. Counting prompts instead of distinct keys
+        # overestimated a contamination-subset run by 59 calls out of 240.
+        pending: dict[str, str] = {}
+        repeats = 0
         for rows in loaded.values():
             for r in rows:
                 for prompt in judge_prompts(r):
-                    if prompt and judge.cache.get(cache_key(judge.base_url, judge.model, [{"role": "user", "content": prompt}], judge.params)) is None:
-                        pending.append(prompt)
-        chars = sum(len(p) for p in pending)
-        print(json.dumps({"judge": judge.model, "uncached_judge_calls": len(pending), "prompt_characters": chars, "approx_prompt_tokens_at_3.5_chars": round(chars / 3.5)}, indent=2))
+                    if not prompt:
+                        continue
+                    key = cache_key(judge.base_url, judge.model, [{"role": "user", "content": prompt}], judge.params)
+                    if judge.cache.get(key) is not None:
+                        continue
+                    if key in pending:
+                        repeats += 1
+                    else:
+                        pending[key] = prompt
+        chars = sum(len(p) for p in pending.values())
+        print(json.dumps({"judge": judge.model, "uncached_judge_calls": len(pending), "repeated_prompts_not_counted": repeats, "prompt_characters": chars, "approx_prompt_tokens_at_3.5_chars": round(chars / 3.5)}, indent=2))
         return
 
     report: dict = {}
