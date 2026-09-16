@@ -1,5 +1,9 @@
 # Running dense retrieval and reranking on Colab (free T4)
 
+**Fallback.** `docs/kaggle.md` is the primary environment: two Colab sessions were lost mid-run, and a
+Kaggle GPU session runs up to 12 hours, which fits the whole UN pipeline. Use this document when Kaggle
+is unavailable, or for the XQuAD session already recorded below.
+
 The laptop runs BM25 but not the neural models: it has 7.7 GB of RAM with under 1 GB free.
 `multilingual-e5-base`, `bge-m3` and `bge-reranker-v2-m3` run on Colab.
 

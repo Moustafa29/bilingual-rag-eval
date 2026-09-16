@@ -43,7 +43,8 @@ _Written by the author._
 ## Method
 
 `docs/design.md` has the design and every change made while building; `docs/results.md` has the
-retrieval tables.
+retrieval tables. The neural retrieval steps need a GPU: `docs/kaggle.md` is the environment they run
+in, `docs/colab.md` the fallback.
 
 ## Reproducing
 

@@ -180,7 +180,7 @@ comparison is between fully corrected and uncorrected text.
 
 **Where the correction can matter:**
 - **Dense retrieval.** Embedding models read token order, so `000 50` and `50 000` produce
-  different vectors. Not yet run; needs the Colab T4 (`docs/colab.md`).
+  different vectors. Not yet run; needs a GPU session (`docs/kaggle.md`).
 - **Phase 4 answer scoring.** An exact-match check of the answer "50,000" against a passage span
   `000 50` fails.
 
