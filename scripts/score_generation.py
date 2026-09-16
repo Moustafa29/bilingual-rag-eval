@@ -14,6 +14,10 @@ Correctness sources:
 
 Reads data/generation/<corpus>/<answerer model>/<condition>/<lang>.jsonl. Reports, per answerer, condition
 and language: accuracy, retrieval rate, the four attribution cells, abstention and hallucination rates.
+
+Every condition on disk is scored unless --conditions limits it. Pass --conditions while a generation
+run is in flight: scoring a half-written condition spends judge quota on answers that are about to be
+regenerated, which cost a day of judge quota once.
 It also reports:
 - retrieval cost (oracle - rag) and generation cost (1 - oracle) per answerer and language
 - the paired EN - AR accuracy difference with a 95% bootstrap CI
@@ -46,6 +50,7 @@ def main() -> None:
     parser.add_argument("--config", default="configs/pilot.yaml")
     parser.add_argument("--corpus", choices=sorted(QUESTION_FILES), required=True)
     parser.add_argument("--correctness", choices=["exact_match", "judge"], default="exact_match")
+    parser.add_argument("--conditions", help="comma-separated conditions to score; default: every condition on disk")
     parser.add_argument("--support", action="store_true")
     parser.add_argument("--judge-dry-run", action="store_true")
     parser.add_argument("--seed", type=int, default=20260915)
@@ -56,6 +61,11 @@ def main() -> None:
     questions = {q["qid"]: q for q in read_jsonl(data / "questions" / QUESTION_FILES[args.corpus])}
     prompts = Prompts(cfg["paths"]["prompts"])
     files = sorted(p for p in (data / "generation" / args.corpus).glob("*/*/*.jsonl") if not p.name.endswith(".scored.jsonl"))
+    if args.conditions:
+        wanted = {c.strip() for c in args.conditions.split(",") if c.strip()}
+        files = [p for p in files if p.parent.name in wanted]
+        if not files:
+            raise SystemExit(f"no answers for conditions {sorted(wanted)} under data/generation/{args.corpus}")
     if not files:
         raise SystemExit("no generation outputs; run scripts/run_generation.py first")
 
