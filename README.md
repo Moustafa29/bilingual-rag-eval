@@ -5,7 +5,9 @@ documents and the same questions, differing only in language: a 33,476-chunk sub
 Parallel Corpus (English–Arabic, sentence-aligned), 128 questions, eight retrieval configurations, and a
 generation stage with controls that separate what retrieval costs from what generation costs.
 
-Every number below comes from a committed results file, with the command that produced it.
+Every number below comes from a committed results file, with the command that produced it. They are not
+transcribed by hand: `tests/test_readme_figures.py` reads each figure out of the results JSON and fails if
+this README disagrees with it, so `pytest` catches a stale number the way it catches a broken function.
 
 ---
 
@@ -216,6 +218,31 @@ together, with the three assumptions behind it, whichever way it lands.
 
 _Draft written by Claude at the author's request; the author's own version replaces this._
 
+### The flaw this pipeline cannot detect from the inside
+
+**The judge is the same model as the question verifier**, `qwen/qwen3.8-27b` in both roles, both on the
+free tier. The verifier decided which questions are valid and what their reference answers are; the judge
+decides whether an answer matches that reference. **A systematic error in one is an error in the other,
+in the same direction, and every internal consistency check would still pass.**
+
+This is not hypothetical here. One shared error is already documented: both the withdrawn verifier and
+its replacement treat "more than 5,000" as a different fact from "5,000", against the prompt's explicit
+instruction, in every case replayed. That bias shaped which numeric questions exist. The same model then
+scores the answers to those questions.
+
+**Why the usual checks miss it.** Swapping the verifier found 1 flip in 68 — but a swap detects
+disagreement, not shared error, and these two models agree *because* they share it. Exact match is
+independent of the judge and disagrees with it 65 times out of 240, yet exact match is itself broken in
+the opposite direction, so the disagreement bounds nothing. Nothing inside this pipeline can separate "the
+judge is right" from "the judge is wrong in the way the verifier was wrong".
+
+**Only an outside measurement closes it,** and it has not been made: the human audit of 100 questions and
+100 judge decisions is not started. Until then every accuracy number here — including the headline
+oracle 0.984 / 0.953 — is conditional on a judge that has never been checked against a person. The $20
+budget is held in reserve for a paid judge on a validation subset if that audit says it is needed.
+
+### Everything else
+
 **One corpus, one domain, one register.** Everything here is UN documents from 2002–2013: bureaucratic
 prose, numbered paragraphs, apportionment tables, committee names. The Arabic is formal Modern Standard
 Arabic produced by professional UN translators. **Nothing here transfers to dialect**, to user-generated
@@ -246,10 +273,6 @@ family checked them, and the swap test found 1 flip in 68 — but a swap cannot 
 share, and one such error was found by hand: the "more than N" blind spot, which survived the swap and
 biases the numeric set. The human audit that would bound this properly (100 questions, 100 judge
 decisions) **has not been done yet**, so the error rate of the question set is estimated, not measured.
-
-**The judge is the same model as the verifier**, both `qwen/qwen3.8-27b`, both free-tier. Correlated
-errors between question construction and answer scoring are possible by construction. The $20 budget is
-held in reserve for a paid judge on a validation subset if the human audit shows it is needed.
 
 **Absolute accuracy depends on the judge, and the two available measures disagree by a lot.** Oracle
 accuracy is 0.984 / 0.953 under the judge and 0.711 / 0.539 under exact match. The judge's numbers are
@@ -298,7 +321,7 @@ of writing, unmeasured.
 | `docs/results.md` | retrieval tables, XQuAD and UN corpus |
 | `docs/generation.md` | generation controls, contamination gate, the pre-registered RAG prediction |
 | `docs/kaggle.md`, `docs/colab.md` | running the GPU steps |
-| `tests/` | 146 tests: analyzers, BM25, fusion, metrics, bootstrap and McNemar, chunking, number correction |
+| `tests/` | 186 tests: analyzers, BM25, fusion, metrics, bootstrap and McNemar, chunking, number correction, and every figure in this README against the results files |
 
 ## Setup
 
