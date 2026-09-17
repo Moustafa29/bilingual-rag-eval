@@ -30,8 +30,21 @@ writes `data/results/unpc/generation_judge.json`.
 ### What the controls establish
 
 - **The model does not know these facts.** Closed-book accuracy is 0.031 in both languages: 4 questions
-  of 128. It abstains on more than half. The corpus is UN documents from 2002–2013 — apportionment
-  amounts, session numbers, committee names — and the answering model has no usable memory of them.
+  of 128. It abstains on more than half (0.539 English, 0.570 Arabic). The corpus is UN documents from
+  2002–2013 — apportionment amounts, session numbers, committee names — and the answering model has no
+  usable memory of them.
+- **This was a real risk, and it is worth stating that it did not materialise.** UN documents are public,
+  heavily mirrored, and plausibly in any web-scale training set, so a reader should ask whether the
+  answering model is reciting them rather than reading the retrieved passages. If it were, the RAG
+  condition would score well regardless of what retrieval returned, the "missed" cells of the attribution
+  would fill with correct answers, and the whole retrieval-ceiling argument would collapse. The
+  closed-book condition is the direct test of that, and it is what makes the argument safe rather than
+  an assumption: **whatever this corpus contributed to pretraining, none of it is retrievable from the
+  model by asking these questions.** Being in the training data and being answerable from memory are not
+  the same thing; these questions ask for one specific figure or name out of a 33,476-chunk corpus of
+  near-identical bureaucratic prose.
+- **The bound this puts on the attribution:** a question the RAG condition answers correctly without the
+  gold passage in context is either luck or memory, and memory is capped at 3.1%.
 - **That makes the attribution clean.** Any question the RAG condition answers correctly was answered
   from the retrieved passages, not from memory, to within 3 percentage points. The four-cell attribution
   (retrieved/missed × correct/wrong) rests on this and it holds.
