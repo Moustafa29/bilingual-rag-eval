@@ -39,7 +39,7 @@ from pathlib import Path
 from rageval.eval.corpora import QUESTION_FILES
 from rageval.generation.answering import answer_question
 from rageval.generation.contexts import gold_positions, oracle_context, rag_context, retrieved_all
-from rageval.io import load_config, load_dotenv, read_jsonl, write_jsonl
+from rageval.io import load_config, load_dotenv, read_jsonl, read_jsonl_field, read_jsonl_subset, write_jsonl
 from rageval.llm.client import ChatClient, DailyLimitReached, DiskCache, cache_key
 from rageval.questions.builder import LANG_NAMES, Prompts, format_passages
 
@@ -79,8 +79,10 @@ def main() -> None:
     if args.sample is not None:
         questions = sorted(random.Random(f"{seed}:generation-sample").sample(questions, min(args.sample, len(questions))), key=lambda q: q["qid"])
     context_corpus = args.context_corpus or args.corpus
-    chunks = {c["chunk_id"]: c for c in read_jsonl(data / "corpus" / context_corpus / "chunks.jsonl")}
-    pool = sorted(chunks)
+    # Chunk ids only: the passage text is loaded per language, for the contexts actually used. Holding the
+    # whole corpus (104 MB, both languages) is what made generation fail on a low-memory machine.
+    chunks_path = data / "corpus" / context_corpus / "chunks.jsonl"
+    pool = sorted(read_jsonl_field(chunks_path, "chunk_id"))
     cache = DiskCache(data / "llm_cache")
     answerer = ChatClient.from_config(gen_cfg[args.answerer], cache, data / "llm_usage.jsonl")
     prompts = Prompts(cfg["paths"]["prompts"])
@@ -95,18 +97,23 @@ def main() -> None:
             ranking = {}
             if condition == "rag":
                 ranking = {r["qid"]: [c for c, _ in r["ranking"]] for r in read_jsonl(data / "runs" / args.corpus / run_name / f"{lang}-{lang}.jsonl")}
+            contexts = {}
+            for q in questions:
+                if condition == "closed_book":
+                    contexts[q["qid"]] = []
+                elif condition == "oracle":
+                    contexts[q["qid"]] = oracle_context(q["qid"], q["gold_chunks"], q["relevant_groups"], pool, k, seed)
+                elif condition == "rag":
+                    contexts[q["qid"]] = rag_context(ranking[q["qid"]], k)
+                else:
+                    raise SystemExit(f"unknown condition: {condition}")
+            texts = read_jsonl_subset(chunks_path, {c for ids in contexts.values() for c in ids}, "chunk_id", lang)
+
             rows = []
             stats = {"answer_calls": 0, "answer_uncached": 0, "answer_prompt_tokens": 0, "judge_correctness_calls": 0, "judge_support_calls": 0, "judge_prompt_tokens": 0}
             for q in questions:
-                if condition == "closed_book":
-                    context = []
-                elif condition == "oracle":
-                    context = oracle_context(q["qid"], q["gold_chunks"], q["relevant_groups"], pool, k, seed)
-                elif condition == "rag":
-                    context = rag_context(ranking[q["qid"]], k)
-                else:
-                    raise SystemExit(f"unknown condition: {condition}")
-                passages = [chunks[c][lang] for c in context]
+                context = contexts[q["qid"]]
+                passages = [texts[c] for c in context]
 
                 if args.dry_run:
                     if condition == "closed_book":

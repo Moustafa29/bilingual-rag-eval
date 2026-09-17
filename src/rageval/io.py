@@ -31,6 +31,36 @@ def read_jsonl(path: str | Path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
+def read_jsonl_field(path: str | Path, field: str) -> list:
+    """One field from every record, without holding the file in memory.
+
+    The UN chunk file is ~104 MB and holds both languages; loading all of it to use a few hundred
+    passages exhausted a 7.7 GB laptop during generation.
+    """
+    values = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                values.append(json.loads(line)[field])
+    return values
+
+
+def read_jsonl_subset(path: str | Path, keys: Iterable[str], key_field: str, value_field: str) -> dict:
+    """{key_field: value_field} for the records whose key is wanted; the rest are parsed and dropped."""
+    wanted = set(keys)
+    found = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if record[key_field] in wanted:
+                found[record[key_field]] = record[value_field]
+                if len(found) == len(wanted):
+                    break
+    return found
+
+
 def jsonl_fingerprint(path: str | Path) -> str:
     """SHA-256 over a file's lines with line endings removed.
 
