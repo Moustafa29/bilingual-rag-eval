@@ -1,80 +1,322 @@
 # Bilingual RAG: measuring the retrieval ceiling in Arabic and English
 
-_Structure only. Sections fill in as results are produced; every number will come from a committed
-results file, with the command that produced it._
+Retrieval caps generation, and the cap is lower in Arabic. This measures both halves on the same
+documents and the same questions, differing only in language: a 33,476-chunk subsample of the UN
+Parallel Corpus (English–Arabic, sentence-aligned), 128 questions, eight retrieval configurations, and a
+generation stage with controls that separate what retrieval costs from what generation costs.
 
-## The claim
+Every number below comes from a committed results file, with the command that produced it.
 
-On the same documents and the same questions, differing only in language: how much retrieval quality
-is lost in Arabic, for which retriever types, and how much of the resulting answer-quality loss comes
-from retrieval rather than generation.
+---
 
-## Headline results
+## The result
 
-**The Arabic penalty is in retrieval, not in generation.** On the same 128 questions over the same UN
-documents, with the strongest retrieval configuration in this project (RRF over stemmed BM25 and bge-m3,
-reranked by bge-reranker-v2-m3):
+**The Arabic penalty is in retrieval, not in generation.** Same questions, same documents, best
+retrieval configuration in the project (RRF over stemmed BM25 and `bge-m3`, reranked by
+`bge-reranker-v2-m3` over the top 50):
 
-| Stage | English − Arabic | 95% CI |
-|---|---|---|
-| **Retrieval** (recall@5) | **+0.078** | [+0.016, +0.141], McNemar p = 0.031 |
-| **Generation with retrieval held perfect** (oracle accuracy) | **+0.031** | [+0.000, +0.070] |
-
-Give the model the right passage and it answers Arabic almost as well as English (0.953 against 0.984).
-Make it find the passage first and the gap more than doubles. `docs/results.md`, `docs/generation.md`.
-
-**The same reranker "closes" the gap on XQuAD and does not close it here**, because XQuAD reaches
-recall@5 = 1.000 in both languages: at the ceiling the difference cannot be anything but zero. A zero
-difference beside a perfect absolute score is a property of the benchmark, not of the retriever.
-
-| Corpus | recall@5 EN | recall@5 AR | Δ EN − AR |
+| Stage | What it measures | English − Arabic | 95% CI |
 |---|---|---|---|
-| XQuAD (240 passages) | 1.000 | 1.000 | +0.000 [+0.000, +0.000] |
-| UN corpus (33,476 chunks) | 0.938 | 0.859 | +0.078 [+0.016, +0.141] |
+| **Retrieval** (recall@5) | finding the passage | **+0.078** | [+0.016, +0.141], McNemar p = 0.031 |
+| **Generation, retrieval held perfect** (oracle accuracy) | using the passage | **+0.031** | [+0.000, +0.070] |
 
-_Pending: the RAG condition's four-cell attribution and hallucination rate._
+Give the model the right passage and Arabic is nearly English: 0.953 against 0.984. Make it find the
+passage first and the gap more than doubles.
 
-- What the Arabic digit-group correction is worth: nothing for BM25 (structural), nothing measurable
-  for dense retrieval, and it matters for answer scoring (`docs/results.md`)
+**The attribution is not an assumption.** Closed-book accuracy — the same questions with no passages at
+all — is **0.031 in both languages**, 4 questions of 128, with the model abstaining on over half. UN
+documents are public and plausibly in any web-scale training set, so recitation was a real risk to this
+design. It did not materialise: whatever this corpus contributed to pretraining, none of it is
+retrievable by asking these questions, and memory's contribution to any RAG answer is capped at 3.1%.
 
-## Findings about Arabic that are not about retrieval quality
+`docs/results.md`, `docs/generation.md`.
 
-_To be written from `docs/corpus.md`:_
-- Arabic-only truncation
-- reversed digit groups
-- prompt instructions followed less reliably in Arabic
+---
 
-## Evaluation fragility
+## The same reranker "closes" the Arabic gap on XQuAD and does not close it here
 
-_To be written from `docs/corpus.md` §3:_
-- a threshold accepting a wrong answer
-- a verifier swap and the shared "more than N" blind spot
-- the three measured multi-hop attempts
+| Corpus | Candidates per question | recall@5 EN | recall@5 AR | Δ EN − AR | McNemar p |
+|---|---|---|---|---|---|
+| XQuAD | 240 passages | **1.000** | **1.000** | +0.000 [+0.000, +0.000] | 1.0 |
+| UN corpus | 33,476 chunks | 0.938 | 0.859 | **+0.078 [+0.016, +0.141]** | 0.031 |
+
+Both numbers are correct and only one of them is about the reranker. At recall@5 = 1.000 in both
+languages every gold passage is already in the top 5, so the difference between languages *cannot* be
+anything but zero, whatever the reranker does to Arabic. XQuAD is reporting the ceiling of its own
+measurement.
+
+**The general rule, which costs nothing to follow: report the absolute score beside the difference.** A
+zero difference next to a score of 1.000 is a ceiling, not a finding. Every table in this project carries
+both columns for that reason.
+
+The ceiling caveat was written into the XQuAD section before the UN corpus was run, not added after it
+disagreed (`docs/results.md`, and the commit history).
+
+**A concrete cost of testing on the saturated benchmark:** `multilingual-e5-base` and `bge-m3` sit three
+points apart on XQuAD (en-ar recall@1 0.823 against 0.854) and look interchangeable. On the UN corpus
+e5-base collapses to **0.094** where bge-m3 holds **0.367**. The failure is directional — e5-base is fine
+at ar-ar (0.398) and ar-en (0.328); only English queries against Arabic passages collapse. Choosing a
+cross-lingual retriever on XQuAD would have hidden that completely.
+
+---
+
+## Arabic costs more tokens, and it bites at three different levels
+
+The same content in Arabic needs about 1.12× the subword tokens of English (median over all 33,476
+aligned chunks, XLM-R tokenizer). That one ratio produces three unrelated failures.
+
+**1. Embedding truncation, before retrieval starts.** Chunks are sized so that neither language exceeds
+the limit, and 50 still pass `multilingual-e5-base`'s 512 tokens: **40 in Arabic only, 0 in English
+only**, 10 in both. In those 40 the Arabic/English ratio is 1.44×; they are table-like runs of numbers
+and short items, where Arabic's token cost is largest. e5 cuts the end off the Arabic passage while the
+English version fits whole, and nothing reports an error. An English-only benchmark cannot show this.
+
+**2. Generation cost, per character and per call.** Fitting `prompt tokens = intercept + slope × field
+characters` per language over the usage ledger (`scripts/analyze_scoring.py`):
+
+| Prompt type | English | Arabic | Arabic ÷ English |
+|---|---|---|---|
+| Judge prompts | 5.95 chars/token | 3.64 chars/token | **1.64×** |
+| Answering prompts | 5.46 chars/token | 3.98 chars/token | **1.37×** |
+
+Per call the penalty is smaller, 1.23–1.30×, because Arabic says the same thing in about 0.85 of the
+characters. On a fixed daily token budget every Arabic condition costs about a quarter more than its
+English twin — a research-design constraint, not just a bill.
+
+**3. Retrieval quality.** The stemming result below is the same cost in another form: Arabic morphology
+packed into fewer, denser tokens that BM25's bag of words treats as unrelated strings.
+
+---
+
+## Reversed digit groups: a real corpus defect, and a null result on fixing it
+
+UN Arabic text as distributed writes 50,000 as `000 50` — digit groups in reverse order.
+`scripts/build_unpc.py` corrects **3,600 numbers across 1,604 chunks**, using the aligned English to
+confirm each one, and writes a corrected *and* an uncorrected corpus so the correction itself can be
+measured.
+
+**What correcting it is worth to retrieval: nothing measurable.** On the 43 numeric questions, corrected
+minus uncorrected, Arabic:
+
+| Config | Δ recall@5 | Δ MRR@10 | What moved |
+|---|---|---|---|
+| bm25-raw, bm25-norm, bm25-light | +0.000 | +0.000 | nothing: identical token multisets |
+| e5-base | +0.023 [+0.000, +0.070] | +0.001 | one question of 43 |
+| bge-m3 | +0.000 | +0.010 [−0.024, +0.045] | no question enters or leaves the top 5 |
+
+BM25's zero is structural and was predicted: a bag of words does not care about group order. **The dense
+zero was not predicted** — embedding models read token order, and this was the case where the correction
+should have paid off.
+
+The correction stays, because it matters where text is read rather than matched: exact-match scoring of
+"50,000" against a span reading `000 50` fails, and the Arabic gold answers would otherwise carry
+garbled numbers. Its value is in answer scoring, not retrieval. Measuring it is what stopped "the numbers
+were corrected" from implying, silently, that retrieval improved. **56 decimal amounts** (`538.6 5` for
+5,538.6) remain reversed in both corpus versions; none appears in the gold passages of the 43 questions.
+
+---
+
+## Evaluation fragility: four checking rules, measured
+
+What decides which questions exist, and which answers count as correct, is mostly the checking rule —
+not the model (`docs/corpus.md` §3).
+
+**1. A 0.5 token-overlap threshold accepted a wrong answer.** SQuAD-style token F1 at the usual threshold
+let through an answer sharing enough words with the reference while stating a different fact. The
+threshold was removed and replaced by a same-fact judgement; F1 is still recorded, never used as a gate.
+
+**2. Swapping the verifier model changed one verdict in 68.** The original verifier (`qwen/qwen3.6-27b`)
+was withdrawn mid-project with no deprecation notice, so every candidate was re-verified with
+`qwen/qwen3.8-27b`. The swap is reassuring about model choice and proves nothing about correctness: **a
+swap cannot detect an error both models share.**
+
+**3. The shared blind spot the swap test could not see.** Of 14 same-answer rejections inspected by hand,
+**6 were the same fact rejected**, in four patterns. Three were a lower-bound qualifier treated as a
+different fact: "75 000" against "over 75,000", "5,000" against ما يزيد على 5 000 مرشح. Both models did
+it, on every case replayed, against the prompt's explicit instruction. The numeric question set is
+biased against facts stated as "more than N".
+
+**4. Exact match rejects answers the judge accepts — 65 times, and never the reverse.** On the same 240
+oracle answers, the judge accepted an answer exact match rejected 65 times; the reverse happened in
+**zero** cases. Mostly dropped units and qualifiers (`14,443 persons` → `14,443`). The Arabic-specific
+part is digit grouping, which is the corpus's own convention: UN Arabic writes `2 392`, English writes
+`2,392`, and a comma survives tokenization inside one token where a space does not.
+
+**1 and 4 are the same failure in opposite directions.** Token overlap admitted a wrong answer because it
+shared words; exact match rejects correct answers because they do not share all of them. Neither is a
+statement about whether the answer is right. Using exact match as the accuracy measure would report the
+oracle language gap as +0.172 instead of +0.031 — five times larger, almost entirely scoring rule.
+
+---
+
+## Stemming removes the same share of the gap on both corpora, but not in the way it looks
+
+| Corpus | bm25-raw | bm25-light | Share of the gap removed |
+|---|---|---|---|
+| XQuAD | +0.047 | +0.019 | 60% |
+| UN corpus | +0.242 | +0.094 | 61% |
+
+Read as a headline, that says about 60% of naive BM25's Arabic penalty is the tokenizer — clitics like
+و، ب، ال left attached — rather than the language, at both scales. The absolute scores say something
+less flattering.
+
+**42% of the gap that closes is English getting worse.** Light stemming raises Arabic recall@5 from 0.562
+to 0.648 (+0.086) and *lowers* English from 0.805 to 0.742 (−0.063). The gap narrows by 0.149, and 0.063
+of that narrowing is the English side coming down to meet Arabic.
+
+This matters because the gap is the headline number and the analyzer is a preprocessing choice made by
+the person reporting it. **Choosing the analyzer that minimises a language gap selects, in part, for
+damage to the stronger language,** and a gap-only table cannot show it: +0.242 → +0.094 reads as
+unambiguous progress. The stemmed configuration is still what this project's hybrid uses, because 0.648
+beats 0.562 for Arabic — but the English cost is part of that choice and is reported with it.
+
+**What survives stemming is not separable from zero here:** +0.094 [+0.000, +0.195], p = 0.088 at
+n = 128. That is a limit of the sample, not evidence that stemming closes the gap.
+
+---
+
+## Multi-hop: three attempts, three measured causes, none built
+
+Each construction was tested against a stop rule fixed before the test, and each failed differently.
+
+| Construction | Test | Result | Cause |
+|---|---|---|---|
+| Citation bridges (passage A cites document B) | 20 candidates; stop below 5 accepted | **0 of 20** | the link exists only in metadata: B's text names its own symbol in 3 of 233 candidates, so B answers alone |
+| Comparisons over a shared UNBIS subject term | 20 candidates; same rule | **0 of 20** | shared subject terms are topical, not parallel; the generator declined 15 of 20 pairs |
+| Deterministic comparisons of mission-financing appropriations | no LLM: gate of ≥ 60 pairs and ≤ 1 of 30 records wrong | 101 pairs, **2 of 30 wrong** | template-parallel documents still need per-template rules; stopped rather than patch extraction until a sample passed |
+
+**The project is therefore single-hop.** AllRecall@k — where hybrid retrieval and reranking were expected
+to separate from dense-only retrieval — cannot be reported, and the planned query-decomposition agent has
+nothing to decompose. Three negative results with causes are the honest output; a fourth attempt with
+looser rules would have produced questions and no finding.
+
+---
+
+## Status
+
+| Part | State |
+|---|---|
+| Corpus and question set | complete: 1,250 documents, 33,476 chunks, 128 questions (88 single-hop + 40 numeric), frozen |
+| Retrieval, XQuAD and UN corpus | complete: 8 configurations, both languages, both corpus versions |
+| Generation: closed-book and oracle | complete and judged, n = 128 per language |
+| Generation: RAG with the reranked hybrid | **in progress — 57 of 256 answers**, resuming at each daily quota limit |
+| Hallucination / support judgements | not started; judged on the RAG condition only |
+| RAG with stemmed BM25 (a second retrieval condition) | a bonus, only if quota allows |
+| Human audit: 100 questions + 100 judge decisions | not started |
+| Query-decomposition agent | not possible on this question set; see multi-hop |
+
+The RAG condition's accuracy was **predicted and committed before those answers existed**
+(`docs/generation.md`): 0.925 English, 0.823 Arabic, gap +0.102, from
+recall@5 × oracle + (1 − recall@5) × closed-book. The prediction and the outcome will be reported
+together, with the three assumptions behind it, whichever way it lands.
+
+---
 
 ## What doesn't work
 
-_Written by the author._
+_Draft written by Claude at the author's request; the author's own version replaces this._
+
+**One corpus, one domain, one register.** Everything here is UN documents from 2002–2013: bureaucratic
+prose, numbered paragraphs, apportionment tables, committee names. The Arabic is formal Modern Standard
+Arabic produced by professional UN translators. **Nothing here transfers to dialect**, to user-generated
+text, or to Arabic written natively rather than translated. A retrieval gap measured on translationese is
+a gap on translationese.
+
+**The Arabic side is a translation of the English side.** That is what makes the comparison possible, and
+it also makes it easier than reality: translated Arabic tracks English structure closely, so the measured
+gap is plausibly a lower bound on what natively written Arabic would show.
+
+**128 questions.** Most intervals here are wide. The reranked gap, +0.078 [+0.016, +0.141], clears zero
+but does not pin the size. The 43-question numeric subset cannot carry a conclusion at all — its reranked
+row is +0.023 [−0.093, +0.140], p = 1 — and it is labelled directional throughout. The set was frozen at
+128 because generation quota was needed elsewhere: a budget reason, not a statistical one.
+
+**One of everything in the pipeline.** One embedding pair (`multilingual-e5-base`, `bge-m3`), one reranker
+(`bge-reranker-v2-m3`), one answering model (`gpt-oss-20b`), one judge, one value of k (5), one chunking
+scheme. No sweep over k, no second reranker, no larger e5. Where a single model behaves oddly — e5-base's
+en-ar collapse to 0.094 — the cause is **not diagnosed**: query prefix, normalization, or the model's
+cross-lingual alignment would all produce it, and nothing here distinguishes them.
+
+**Every result is single-hop.** Three multi-hop constructions were measured and stopped. "Retrieval caps
+generation" is demonstrated for questions answerable from one passage. Multi-passage questions are
+exactly where retrieval failures compound, and nothing here measures that.
+
+**The questions are LLM-generated and LLM-verified.** A generator wrote them, a verifier from a different
+family checked them, and the swap test found 1 flip in 68 — but a swap cannot find an error both models
+share, and one such error was found by hand: the "more than N" blind spot, which survived the swap and
+biases the numeric set. The human audit that would bound this properly (100 questions, 100 judge
+decisions) **has not been done yet**, so the error rate of the question set is estimated, not measured.
+
+**The judge is the same model as the verifier**, both `qwen/qwen3.8-27b`, both free-tier. Correlated
+errors between question construction and answer scoring are possible by construction. The $20 budget is
+held in reserve for a paid judge on a validation subset if the human audit shows it is needed.
+
+**Absolute accuracy depends on the judge, and the two available measures disagree by a lot.** Oracle
+accuracy is 0.984 / 0.953 under the judge and 0.711 / 0.539 under exact match. The judge's numbers are
+used throughout because exact match demonstrably rejects correct answers 65 times against zero the other
+way — but no human has validated the judge's own decisions yet.
+
+**Free-tier quota shaped the design as much as the research question did.** The corpus was cut from
+53,587 to 33,476 chunks to fit a free GPU session; the question set was frozen at 128; the plan is **one**
+retrieval condition for generation rather than two; contamination was measured on 60 questions rather
+than 128; and the RAG condition runs across several days in quota-limited slices. A better-resourced
+version of this study would answer some of these questions differently, and would not have to choose.
+
+**Reproducibility has two holes that are not mine to close.** The original verifier model was withdrawn
+mid-project with no notice, so those verdicts exist only in the response cache and cannot be regenerated
+by anyone re-running the pipeline. And the provider's daily token counter disagreed with the local usage
+ledger by up to 35%, so identical work takes an unpredictable number of days: free-tier accounting is not
+a stable base for planning a study.
+
+**Exact search on 33,476 chunks.** No approximate index, no scaling story. What happens at millions of
+chunks, where ANN error and index choice matter, is not addressed here.
+
+**Still missing:** the hallucination rate (support judgements not started), the second retrieval
+condition, and the human audit. Any statement about grounding or hallucination in Arabic is, at the time
+of writing, unmeasured.
+
+---
 
 ## Data
 
-- UN Parallel Corpus v1.0 subsample: 1,250 documents, 33,476 aligned chunks (`docs/corpus.md`)
-- XQuAD English and Arabic: 240 passages, 1,190 questions
+- **UN Parallel Corpus v1.0** subsample via OPUS: 114,047 English–Arabic document pairs → 35,979 eligible
+  → 1,250 selected (1,000 seed + 250 cited) → **33,476 aligned chunks**, each holding the same content in
+  both languages (`docs/corpus.md`).
+- **XQuAD** English and Arabic: 240 passages, 1,190 questions, as a human-written-question control.
+- **Questions:** 128 (88 single-hop + 40 numeric), written from passages, blind-translated, verified,
+  frozen. 43 contain a grouped number and form the numeric subset.
 
-## Method
+## Repository
 
-`docs/design.md` has the design and every change made while building; `docs/results.md` has the
-retrieval tables. The neural retrieval steps need a GPU: `docs/kaggle.md` is the environment they run
-in, `docs/colab.md` the fallback.
+| Path | What is in it |
+|---|---|
+| `src/rageval/` | corpus building, retrieval (BM25, dense, RRF, reranking), metrics, LLM client with disk cache |
+| `scripts/` | one step each: `build_unpc.py`, `build_questions.py`, `run_retrieval.py`, `evaluate.py`, `run_generation.py`, `score_generation.py`, `analyze_scoring.py` |
+| `configs/pilot.yaml` | every parameter, model and gate, plus the frozen-data fingerprints |
+| `docs/design.md` | the design, and every change made while building, with reasons |
+| `docs/corpus.md` | corpus and question-set findings, evaluation fragility, multi-hop attempts |
+| `docs/results.md` | retrieval tables, XQuAD and UN corpus |
+| `docs/generation.md` | generation controls, contamination gate, the pre-registered RAG prediction |
+| `docs/kaggle.md`, `docs/colab.md` | running the GPU steps |
+| `tests/` | 146 tests: analyzers, BM25, fusion, metrics, bootstrap and McNemar, chunking, number correction |
 
-## Reproducing
+## Setup
 
-_Commands for each phase, in order._
+```bash
+python -m venv .venv && .venv/Scripts/activate   # Linux/macOS: source .venv/bin/activate
+pip install -e .
+pytest -q
+```
 
-## Limitations
+Retrieval and generation need `data/`, which is git-ignored. Rebuild it in this order:
 
-_Pending._
+```bash
+python scripts/build_unpc.py                                   # corpus, both versions (~207 MB download)
+python scripts/run_retrieval.py --corpus unpc --configs bm25-raw,bm25-norm,bm25-light
+python scripts/evaluate.py --corpus unpc
+```
 
-## License
-
-Code: MIT. Data: UN Parallel Corpus v1.0 (acknowledge the United Nations; cite Ziemski,
-Junczys-Dowmunt & Pouliquen 2016) and XQuAD (CC BY-SA 4.0).
+The dense, hybrid and reranked configurations need a GPU: `docs/kaggle.md` gives the session in
+dependency order, with two gates that catch a broken environment and a mismatched corpus before anything
+expensive runs. Generation needs a Groq API key in `.env` (`GROQ_API_KEY`); every LLM response is cached
+by prompt hash, so re-running analysis costs nothing.
