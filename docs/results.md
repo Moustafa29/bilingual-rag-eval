@@ -300,7 +300,7 @@ not. The expectation going in was that dense retrieval would be the place the co
   comparison the write-up would have said "the numbers were corrected", leaving the reader to assume
   retrieval improved.
 
-### e5-base collapses cross-lingually on the UN corpus; bge-m3 does not
+### e5-base collapses on English queries against Arabic passages; bge-m3 does not
 
 English question against Arabic passages (en-ar):
 
@@ -324,7 +324,7 @@ en-ar direction collapses.
 - **Consequence:** a cross-lingual retriever cannot be chosen on a saturated benchmark. On XQuAD these
   two models are interchangeable.
 
-### Stemming: the XQuAD finding replicates, on a gap five times larger
+### Stemming removes the same share of the gap on both corpora, but not in the way it looks
 
 Δ recall@5, EN − AR, same-language retrieval:
 
@@ -333,24 +333,43 @@ en-ar direction collapses.
 | XQuAD | +0.047 | +0.019 | 60% |
 | UN corpus | +0.242 | +0.094 | 61% |
 
-The UN gap is five times the XQuAD gap, and light stemming removes the same share of it. **About 60% of
-naive BM25's Arabic penalty is the tokenizer — clitics like و، ب، ال left attached to the word — not
-the language.** That this holds at both scales is what makes it a property of the analyzer rather than
-of one corpus.
+The UN gap is five times the XQuAD gap, and light stemming removes the same share of it. Read as a
+headline, that says about 60% of naive BM25's Arabic penalty is the tokenizer — clitics like و، ب، ال
+left attached to the word — rather than the language, at both scales. Two things in the underlying
+numbers qualify it.
 
-- **The raw gap is unambiguous, the stemmed one is not.** On the UN corpus, bm25-raw is +0.242
-  [+0.148, +0.336] with McNemar p = 5.5e-06; bm25-light is +0.094 [+0.000, +0.195] with p = 0.088. What
-  survives stemming is no longer separable from zero at n = 128, which is a limit of this sample rather
-  than evidence that stemming closes the gap.
-- **Normalization alone is worth little,** here as on XQuAD: bm25-norm is +0.219 against raw's +0.242,
-  and the whole of its effect is in Arabic (ar-ar recall@5 0.562 → 0.586, English unchanged).
-- **The narrowing is two-sided, and the numeric subset's warning replicates.** Light stemming raises
-  Arabic recall@5 from 0.562 to 0.648 (+0.086) and *lowers* English from 0.805 to 0.742 (−0.063). So
-  58% of the gap it removes comes from Arabic improving and 42% from English getting worse. "English
-  stemming hurts", first seen on the 43 numeric questions, holds on all 128. A stemmer chosen to close
-  a language gap is partly closing it from the wrong end.
+#### 42% of the gap that closes is English getting worse
 
-### BM25 on the numeric questions (n = 43)
+Light stemming raises Arabic recall@5 from 0.562 to 0.648, a gain of 0.086. It also *lowers* English
+from 0.805 to 0.742, a loss of 0.063. The gap narrows by 0.149 in total, and 42% of that narrowing is
+the English side coming down to meet Arabic rather than Arabic climbing.
+
+This matters because the gap is the headline number and the analyzer is a preprocessing choice made by
+the person reporting it. Choosing the analyzer that minimises a language gap selects, in part, for
+damage to the stronger language. Nothing in a gap-only table shows that: +0.242 → +0.094 looks like
+unambiguous progress, and half of it is regression. The absolute scores are what separate the two, and
+they are the reason both languages' scores appear beside every difference in the tables above.
+
+The same effect was visible earlier on the 43 numeric questions, where light stemming lowered English
+recall@5 from 0.860 to 0.814. It was recorded there as a small-sample oddity. It is not: it holds on all
+128 questions.
+
+For this project the stemmed configuration is still the one used inside the hybrid, because what the
+pipeline needs is the best Arabic retrieval it can get, and 0.648 beats 0.562. But the English cost is
+part of that choice and is reported with it.
+
+#### What survives stemming is not separable from zero here
+
+On the UN corpus, bm25-raw is +0.242 [+0.148, +0.336] with McNemar p = 5.5e-06, and bm25-light is
++0.094 [+0.000, +0.195] with p = 0.088. The residual gap after stemming cannot be distinguished from
+zero at n = 128. **That is a limit of this sample, not evidence that stemming closes the gap.** The
+paired interval is wide because 128 questions with a per-question difference that is mostly −1, 0 or +1
+cannot resolve 0.09. The raw gap is large enough to clear that noise; the stemmed one is not.
+
+**Normalization alone is worth little,** here as on XQuAD: bm25-norm is +0.219 against raw's +0.242, and
+the whole of its effect is in Arabic (ar-ar recall@5 0.562 → 0.586, English unchanged).
+
+### Numeric questions (n = 43): every configuration, all directional
 
 | Config | Query–doc | recall@1 | recall@5 | recall@10 | recall@20 | MRR@10 | nDCG@10 |
 |---|---|---|---|---|---|---|---|
@@ -365,7 +384,12 @@ of one corpus.
 |---|---|---|---|---|
 | bm25-raw | +0.256 [+0.093, +0.419] | +0.229 [+0.054, +0.402] | 14 / 3 | 0.013 |
 | bm25-norm | +0.233 [+0.070, +0.395] | +0.203 [+0.026, +0.380] | 13 / 3 | 0.021 |
-| bm25-light | +0.186 [+0.000, +0.349] | +0.116 [−0.065, +0.296] | 12 / 4 | 0.077 |
+| bm25-light | +0.186 [+0.000, +0.349] | +0.116 [-0.065, +0.296] | 12 / 4 | 0.077 |
+| e5-base | +0.116 [-0.023, +0.256] | +0.130 [-0.004, +0.262] | 7 / 2 | 0.180 |
+| bge-m3 | +0.186 [+0.047, +0.326] | +0.143 [+0.054, +0.236] | 9 / 1 | 0.021 |
+| hybrid bm25-light + e5-base | +0.116 [-0.023, +0.256] | +0.156 [+0.033, +0.284] | 8 / 3 | 0.227 |
+| hybrid bm25-light + bge-m3 | +0.163 [+0.023, +0.302] | +0.148 [+0.033, +0.268] | 9 / 2 | 0.065 |
+| **reranked hybrid** | +0.023 [-0.093, +0.140] | +0.077 [-0.040, +0.198] | 4 / 3 | 1.000 |
 
 **Directional, not conclusive.** Read this table for the sign of the gaps, not their size.
 - **Unstable at this size.** On the earlier 41-question set, the stemmed recall@5 gap was +0.220 with
