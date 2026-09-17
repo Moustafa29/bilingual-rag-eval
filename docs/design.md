@@ -574,6 +574,21 @@ model and day: **5.3% apart, not 35%.**
   reproducibility constraint. Two runs of this pipeline can need a different number of days for the
   same work, and a plan that assumes a clean 200K per calendar day will be late.
 
+**The limit is a rolling window that refills continuously, not a daily reset.** Measured on
+2026-09-17: a run stopped at the limit at 03:45, and 31 minutes later exactly three calls (4,150
+tokens) succeeded before it stopped again — about 134 tokens per minute, against the 139 per minute
+that 200,000 per day implies. The refusal message says "try again in 4m54s", which is the time until
+the next call's worth of tokens has accrued.
+
+- **What it changes for scheduling:** there is no point waiting for a reset. Throughput is a rate,
+  200,000 tokens per day whenever the account is at the limit, and a job that stops and resumes on a
+  timer drains it as it refills. The retry loop is doing what a "wait for tomorrow" plan cannot.
+- **What it changes for estimates:** remaining work divides by the rate. 307,000 tokens of answering
+  left is about 37 hours, whatever time of day it is.
+- **Three different things, one quota.** The daily limit turned out not to be a calendar-day limit
+  (above), not a counter that matches the ledger (above), and not a reset but a refill. Each was
+  discovered by hitting it. None of it is documented in the response beyond a one-line message.
+
 ---
 
 ## 11. Threats to validity (draft, to extend as we go)
