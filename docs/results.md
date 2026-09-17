@@ -11,10 +11,10 @@ The same configuration — RRF over stemmed BM25 and `bge-m3`, reranked by `bge-
 top 50 — is the best retriever in this project. Whether it removes the Arabic penalty depends entirely
 on which corpus it is measured on.
 
-| Corpus | Candidates per question | Δ recall@5, EN − AR [95% CI] | hit@5 EN-only / AR-only | McNemar p |
-|---|---|---|---|---|
-| XQuAD | 240 passages | **+0.000 [+0.000, +0.000]** | 0 / 0 | 1.0 |
-| UN corpus | 33,476 chunks | **+0.078 [+0.016, +0.141]** | see the UN table below | 0.031 |
+| Corpus | Candidates per question | recall@5 EN | recall@5 AR | Δ recall@5, EN − AR [95% CI] | hit@5 EN-only / AR-only | McNemar p |
+|---|---|---|---|---|---|---|
+| XQuAD | 240 passages | **1.000** | **1.000** | **+0.000 [+0.000, +0.000]** | 0 / 0 | 1.0 |
+| UN corpus | 33,476 chunks | 0.938 | 0.859 | **+0.078 [+0.016, +0.141]** | 14 / 4 | 0.031 |
 
 **Both numbers are correct, and only one of them is about the reranker.** On XQuAD the reranked
 configuration reaches recall@5 = 1.000 in *both* languages. Every gold passage is in the top 5, so the
@@ -179,6 +179,64 @@ The question set is incomplete: single-hop and numeric questions only, with no m
 used for the corrected-vs-uncorrected comparison is the 43 questions whose English question or answer
 contains a grouped number.
 
+### Full table: same-language retrieval (n = 128)
+
+| Config | Query–doc | recall@1 | recall@5 | recall@10 | recall@20 | MRR@10 | nDCG@10 |
+|---|---|---|---|---|---|---|---|
+| bm25-raw | en-en | 0.539 | 0.805 | 0.859 | 0.891 | 0.654 | 0.704 |
+| bm25-raw | ar-ar | 0.391 | 0.562 | 0.602 | 0.664 | 0.458 | 0.493 |
+| bm25-norm | en-en | 0.539 | 0.805 | 0.859 | 0.891 | 0.654 | 0.704 |
+| bm25-norm | ar-ar | 0.438 | 0.586 | 0.617 | 0.680 | 0.495 | 0.525 |
+| bm25-light | en-en | 0.539 | 0.742 | 0.789 | 0.852 | 0.626 | 0.665 |
+| bm25-light | ar-ar | 0.461 | 0.648 | 0.695 | 0.742 | 0.533 | 0.572 |
+| e5-base | en-en | 0.477 | 0.695 | 0.758 | 0.812 | 0.571 | 0.617 |
+| e5-base | ar-ar | 0.398 | 0.562 | 0.656 | 0.695 | 0.474 | 0.517 |
+| bge-m3 | en-en | 0.445 | 0.703 | 0.781 | 0.852 | 0.555 | 0.610 |
+| bge-m3 | ar-ar | 0.398 | 0.617 | 0.695 | 0.766 | 0.483 | 0.533 |
+| hybrid bm25-light + e5-base | en-en | 0.586 | 0.828 | 0.883 | 0.922 | 0.673 | 0.723 |
+| hybrid bm25-light + e5-base | ar-ar | 0.469 | 0.656 | 0.766 | 0.805 | 0.555 | 0.605 |
+| hybrid bm25-light + bge-m3 | en-en | 0.570 | 0.789 | 0.883 | 0.914 | 0.663 | 0.716 |
+| hybrid bm25-light + bge-m3 | ar-ar | 0.461 | 0.648 | 0.727 | 0.812 | 0.549 | 0.592 |
+| **reranked hybrid** | en-en | 0.828 | 0.938 | 0.945 | 0.953 | 0.871 | 0.890 |
+| **reranked hybrid** | ar-ar | 0.750 | 0.859 | 0.898 | 0.914 | 0.795 | 0.820 |
+
+The reranked row is `rerank:hybrid:bm25-light+bge-m3`: RRF over stemmed BM25 and bge-m3, then
+`bge-reranker-v2-m3` over the top 50. **Nothing here is saturated.** The best English recall@5 is
+0.938 and the best Arabic 0.859, against 1.000 in both languages on XQuAD, which is why this corpus
+can still show a difference at all.
+
+### Full table: paired EN − AR (n = 128)
+
+| Config | Δ recall@5 [95% CI] | Δ MRR@10 [95% CI] | Δ nDCG@10 | hit@5 EN-only / AR-only | McNemar p |
+|---|---|---|---|---|---|
+| bm25-raw | +0.242 [+0.148, +0.336] | +0.195 [+0.105, +0.284] | +0.211 | 39 / 8 | 5.5e-06 |
+| bm25-norm | +0.219 [+0.125, +0.312] | +0.159 [+0.065, +0.252] | +0.179 | 37 / 9 | 4.1e-05 |
+| bm25-light | +0.094 [+0.000, +0.195] | +0.092 [+0.003, +0.181] | +0.093 | 27 / 15 | 0.0884 |
+| e5-base | +0.133 [+0.062, +0.211] | +0.097 [+0.036, +0.161] | +0.099 | 21 / 4 | 0.0009 |
+| bge-m3 | +0.086 [+0.016, +0.156] | +0.073 [+0.020, +0.126] | +0.077 | 17 / 6 | 0.0347 |
+| hybrid bm25-light + e5-base | +0.172 [+0.086, +0.258] | +0.118 [+0.048, +0.190] | +0.118 | 28 / 6 | 0.0002 |
+| hybrid bm25-light + bge-m3 | +0.141 [+0.062, +0.219] | +0.115 [+0.050, +0.182] | +0.124 | 23 / 5 | 0.0009 |
+| **reranked hybrid** | +0.078 [+0.016, +0.141] | +0.076 [+0.016, +0.139] | +0.069 | 14 / 4 | 0.0309 |
+
+- **Every configuration leaves an Arabic penalty**, including the best one. The tier-by-tier
+  narrowing XQuAD showed happens here too — raw BM25 +0.242, stemmed +0.094, dense and hybrid
+  +0.086 to +0.172, reranked +0.078 — but it stops at +0.078, not at zero.
+- **The reranker is what makes the corpus tractable, and it does not equalise the languages.** It
+  lifts Arabic recall@5 from 0.648 (its input hybrid) to 0.859 and recall@1 from 0.461 to 0.750, the
+  largest gain of any tier. English gains too, from 0.789 to 0.938, but less (+0.149 against +0.211),
+  which is why the gap narrows rather than holding.
+- **Where the residual gap lives:** 14 questions are found in the top 5 in English but not Arabic,
+  against 4 the other way.
+
+### Cross-lingual retrieval (n = 128)
+
+| Model | Query–doc | recall@1 | recall@5 | recall@10 | MRR@10 |
+|---|---|---|---|---|---|
+| e5-base | en-ar | 0.094 | 0.219 | 0.273 | 0.147 |
+| e5-base | ar-en | 0.328 | 0.516 | 0.555 | 0.403 |
+| bge-m3 | en-ar | 0.367 | 0.562 | 0.586 | 0.447 |
+| bge-m3 | ar-en | 0.406 | 0.555 | 0.617 | 0.465 |
+
 ### What correcting the Arabic digit groups is worth: BM25
 
 `unpc` has the reversed Arabic digit groups corrected; `unpc_uncorrected` is the text as
@@ -216,18 +274,24 @@ Dense retrieval was the case where the correction should have mattered. Embeddin
 order, so `000 50` and `50 000` are different inputs and should produce different vectors. Measured on
 the same 43 numeric questions, ar-ar, corrected − uncorrected:
 
-| Config | Difference | Reading |
-|---|---|---|
-| bm25-raw, bm25-norm, bm25-light | +0.000 recall@5, CI [+0.000, +0.000] | structural (above): identical token multisets |
-| e5-base | +0.023 recall@5 | one question of 43 flipped; 1/43 = 0.023 is the smallest step this subset can take |
-| bge-m3 | +0.010 MRR@10, 95% CI contains zero | indistinguishable from no difference |
+| Config | Δ recall@5 [95% CI] | Δ MRR@10 [95% CI] | hit@5 corrected-only / uncorrected-only | McNemar p |
+|---|---|---|---|---|
+| bm25-raw | +0.000 [+0.000, +0.000] | +0.000 [+0.000, +0.000] | 0 / 0 | 1.0 |
+| bm25-norm | +0.000 [+0.000, +0.000] | +0.000 [+0.000, +0.000] | 0 / 0 | 1.0 |
+| bm25-light | +0.000 [+0.000, +0.000] | +0.000 [+0.000, +0.000] | 0 / 0 | 1.0 |
+| e5-base | +0.023 [+0.000, +0.070] | +0.001 [−0.034, +0.036] | 1 / 0 | 1.0 |
+| bge-m3 | +0.000 [+0.000, +0.000] | +0.010 [−0.024, +0.045] | 0 / 0 | 1.0 |
 
 **Null result. Across five retrieval configurations, correcting the reversed Arabic digit groups does
 not measurably improve retrieval.** BM25's zero is structural and was predicted; the dense zero was
 not. The expectation going in was that dense retrieval would be the place the correction paid off.
 
-- **One question is not a finding.** e5-base's +0.023 is a single question moving from miss to hit,
-  which is what a 43-question subset can produce by chance.
+- **One question is not a finding.** e5-base's +0.023 is a single question moving from miss to hit
+  (1 / 0 on McNemar, p = 1), and its MRR difference is +0.001. bge-m3 does not move a single question
+  into or out of the top 5; only its ranking within the list shifts, by +0.010 MRR with an interval from
+  −0.024 to +0.045.
+- **The English sanity check holds everywhere:** every en-en difference is exactly zero on all five
+  configurations, as it must be, since the correction never touches English text.
 - **Where the correction does matter, and why it stays:** Phase 4 answer scoring. An exact-match check
   of "50,000" against a span reading `000 50` fails, and the Arabic gold answers themselves would carry
   garbled numbers (`docs/corpus.md` §3, finding 4, where digit grouping is the one Arabic-specific
@@ -238,12 +302,16 @@ not. The expectation going in was that dense retrieval would be the place the co
 
 ### e5-base collapses cross-lingually on the UN corpus; bge-m3 does not
 
-English question against Arabic passages (en-ar), recall@1:
+English question against Arabic passages (en-ar):
 
-| Model | XQuAD | UN corpus |
-|---|---|---|
-| `multilingual-e5-base` | 0.823 | **0.094** |
-| `bge-m3` | 0.854 | **0.367** |
+| Model | XQuAD recall@1 | UN recall@1 | UN recall@5 | UN MRR@10 |
+|---|---|---|---|---|
+| `multilingual-e5-base` | 0.823 | **0.094** | 0.219 | 0.147 |
+| `bge-m3` | 0.854 | **0.367** | 0.562 | 0.447 |
+
+The failure is directional. e5-base retrieves Arabic passages for Arabic queries at 0.398 recall@1 and
+English passages for Arabic queries at 0.328, but Arabic passages for English queries at 0.094. Only the
+en-ar direction collapses.
 
 - **Part of the drop is the corpus,** which has 33,476 candidates against XQuAD's 240, and both models
   fall.
@@ -270,8 +338,17 @@ naive BM25's Arabic penalty is the tokenizer — clitics like و، ب، ال lef
 the language.** That this holds at both scales is what makes it a property of the analyzer rather than
 of one corpus.
 
-**Phase 4 answer scoring** is the other place the digit correction matters: an exact-match check of the
-answer "50,000" against a passage span `000 50` fails.
+- **The raw gap is unambiguous, the stemmed one is not.** On the UN corpus, bm25-raw is +0.242
+  [+0.148, +0.336] with McNemar p = 5.5e-06; bm25-light is +0.094 [+0.000, +0.195] with p = 0.088. What
+  survives stemming is no longer separable from zero at n = 128, which is a limit of this sample rather
+  than evidence that stemming closes the gap.
+- **Normalization alone is worth little,** here as on XQuAD: bm25-norm is +0.219 against raw's +0.242,
+  and the whole of its effect is in Arabic (ar-ar recall@5 0.562 → 0.586, English unchanged).
+- **The narrowing is two-sided, and the numeric subset's warning replicates.** Light stemming raises
+  Arabic recall@5 from 0.562 to 0.648 (+0.086) and *lowers* English from 0.805 to 0.742 (−0.063). So
+  58% of the gap it removes comes from Arabic improving and 42% from English getting worse. "English
+  stemming hurts", first seen on the 43 numeric questions, holds on all 128. A stemmer chosen to close
+  a language gap is partly closing it from the wrong end.
 
 ### BM25 on the numeric questions (n = 43)
 
@@ -306,7 +383,8 @@ answer "50,000" against a passage span `000 50` fails.
 - **English stemming hurts.** Light stemming lowers English recall@5 on these questions (0.860 →
   0.814), which XQuAD did not show.
 - **Not a headline.** The corpus-wide gap needs the full single-hop set.
-- **The reranked hybrid on this subset stays directional too.** Its EN − AR interval contains zero and
-  McNemar gives p = 1, which is what 43 questions support and not evidence that the gap closes here.
+- **The reranked hybrid on this subset stays directional too.** Its EN − AR recall@5 difference is
+  +0.023 [−0.093, +0.140], 4 English-only against 3 Arabic-only hits, McNemar p = 1. That is what 43
+  questions support, and not evidence that the gap closes here.
   The corpus-wide reranked gap, on all 128 questions, is +0.078 [+0.016, +0.141], p = 0.031 (top of
   this document). Where the two disagree, the subset is the underpowered one.
