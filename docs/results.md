@@ -2,7 +2,38 @@
 
 Every number comes from `python scripts/evaluate.py --corpus <corpus>`, which writes
 `data/results/<corpus>/retrieval.json`. XQuAD's dense, hybrid and reranker rows were run on a Colab T4
-(`docs/colab.md`); their results file is committed at `7486ae2`.
+(`docs/colab.md`); their results file is committed at `7486ae2`. The UN corpus dense, hybrid and
+reranker rows were run in one Kaggle GPU session (`docs/kaggle.md`).
+
+## The headline: one reranker, two corpora, opposite conclusions
+
+The same configuration — RRF over stemmed BM25 and `bge-m3`, reranked by `bge-reranker-v2-m3` over the
+top 50 — is the best retriever in this project. Whether it removes the Arabic penalty depends entirely
+on which corpus it is measured on.
+
+| Corpus | Candidates per question | Δ recall@5, EN − AR [95% CI] | hit@5 EN-only / AR-only | McNemar p |
+|---|---|---|---|---|
+| XQuAD | 240 passages | **+0.000 [+0.000, +0.000]** | 0 / 0 | 1.0 |
+| UN corpus | 33,476 chunks | **+0.078 [+0.016, +0.141]** | see the UN table below | 0.031 |
+
+**Both numbers are correct, and only one of them is about the reranker.** On XQuAD the reranked
+configuration reaches recall@5 = 1.000 in *both* languages. Every gold passage is in the top 5, so the
+difference between the languages cannot be anything other than zero, whatever the reranker does to
+Arabic. The measurement has no room left to show a gap. On the UN corpus, with 140 times as many
+candidates and no ceiling, the same configuration leaves an Arabic penalty that a paired test rejects
+zero for.
+
+**What this means for the thesis.** The retrieval ceiling is lower in Arabic, and a reranker does not
+remove that; XQuAD only makes it look removed. The gap is **+0.078 recall@5 after the strongest
+retrieval configuration available here**, which is the ceiling generation inherits in Arabic.
+
+**What it means for reading benchmarks.** A saturated benchmark reports the ceiling of its own
+measurement, not the property being measured. Every paper that closes a gap on a small-corpus benchmark
+is exposed to this, and the check costs nothing: report the absolute score alongside the difference. A
+difference of zero next to a score of 1.000 is a ceiling, not a finding.
+
+The ceiling caveat was written into the XQuAD section before the UN corpus was run, not added after it
+disagreed.
 
 ## XQuAD: what closes the Arabic gap
 
@@ -143,9 +174,10 @@ seed is fixed, so identical rankings must give identical intervals.
 The question set is incomplete: single-hop and numeric questions only, with no multi-hop questions
 (`docs/corpus.md` §3). The tables below cover only what that set supports.
 
-**Question set used here:** re-verified with `qwen/qwen3.8-27b` after the original verifier was
-withdrawn (`docs/corpus.md` §3). It has 82 single-hop questions (of a target of 100) and 40
-numeric questions. Single-hop generation continues, so the numeric subset below can still grow.
+**Question set used here:** frozen at 88 single-hop + 40 numeric = 128 questions, re-verified with
+`qwen/qwen3.8-27b` after the original verifier was withdrawn (`docs/corpus.md` §3). The numeric subset
+used for the corrected-vs-uncorrected comparison is the 43 questions whose English question or answer
+contains a grouped number.
 
 ### What correcting the Arabic digit groups is worth: BM25
 
@@ -178,11 +210,68 @@ statistical power.**
 None of the 43 numeric questions has such an amount in its gold passage, so for these questions the
 comparison is between fully corrected and uncorrected text.
 
-**Where the correction can matter:**
-- **Dense retrieval.** Embedding models read token order, so `000 50` and `50 000` produce
-  different vectors. Not yet run; needs a GPU session (`docs/kaggle.md`).
-- **Phase 4 answer scoring.** An exact-match check of the answer "50,000" against a passage span
-  `000 50` fails.
+### The correction is worth nothing to dense retrieval either: a null result
+
+Dense retrieval was the case where the correction should have mattered. Embedding models read token
+order, so `000 50` and `50 000` are different inputs and should produce different vectors. Measured on
+the same 43 numeric questions, ar-ar, corrected − uncorrected:
+
+| Config | Difference | Reading |
+|---|---|---|
+| bm25-raw, bm25-norm, bm25-light | +0.000 recall@5, CI [+0.000, +0.000] | structural (above): identical token multisets |
+| e5-base | +0.023 recall@5 | one question of 43 flipped; 1/43 = 0.023 is the smallest step this subset can take |
+| bge-m3 | +0.010 MRR@10, 95% CI contains zero | indistinguishable from no difference |
+
+**Null result. Across five retrieval configurations, correcting the reversed Arabic digit groups does
+not measurably improve retrieval.** BM25's zero is structural and was predicted; the dense zero was
+not. The expectation going in was that dense retrieval would be the place the correction paid off.
+
+- **One question is not a finding.** e5-base's +0.023 is a single question moving from miss to hit,
+  which is what a 43-question subset can produce by chance.
+- **Where the correction does matter, and why it stays:** Phase 4 answer scoring. An exact-match check
+  of "50,000" against a span reading `000 50` fails, and the Arabic gold answers themselves would carry
+  garbled numbers (`docs/corpus.md` §3, finding 4, where digit grouping is the one Arabic-specific
+  cause of exact-match rejection). The correction protects the answers, not the retrieval.
+- **Worth measuring.** The reversal is a real, documented defect in the corpus text. Without this
+  comparison the write-up would have said "the numbers were corrected", leaving the reader to assume
+  retrieval improved.
+
+### e5-base collapses cross-lingually on the UN corpus; bge-m3 does not
+
+English question against Arabic passages (en-ar), recall@1:
+
+| Model | XQuAD | UN corpus |
+|---|---|---|
+| `multilingual-e5-base` | 0.823 | **0.094** |
+| `bge-m3` | 0.854 | **0.367** |
+
+- **Part of the drop is the corpus,** which has 33,476 candidates against XQuAD's 240, and both models
+  fall.
+- **The model-specific part is the comparison on one corpus:** 0.094 against 0.367. Two models within
+  three points of each other on XQuAD are 27 points apart on the UN corpus, one of them finding the
+  right chunk first in fewer than one query in ten.
+- **XQuAD saw a hint of it and understated it.** There, e5-base was the asymmetric model (ar-en 0.766
+  vs en-ar 0.823) while bge-m3 was symmetric (0.849 / 0.854). A six-point asymmetry on the small corpus
+  is a 73-point drop on the realistic one.
+- **Consequence:** a cross-lingual retriever cannot be chosen on a saturated benchmark. On XQuAD these
+  two models are interchangeable.
+
+### Stemming: the XQuAD finding replicates, on a gap five times larger
+
+Δ recall@5, EN − AR, same-language retrieval:
+
+| Corpus | bm25-raw | bm25-light (Lucene-style Arabic stemmer) | Share of the gap removed |
+|---|---|---|---|
+| XQuAD | +0.047 | +0.019 | 60% |
+| UN corpus | +0.242 | +0.094 | 61% |
+
+The UN gap is five times the XQuAD gap, and light stemming removes the same share of it. **About 60% of
+naive BM25's Arabic penalty is the tokenizer — clitics like و، ب، ال left attached to the word — not
+the language.** That this holds at both scales is what makes it a property of the analyzer rather than
+of one corpus.
+
+**Phase 4 answer scoring** is the other place the digit correction matters: an exact-match check of the
+answer "50,000" against a passage span `000 50` fails.
 
 ### BM25 on the numeric questions (n = 43)
 
@@ -217,3 +306,7 @@ comparison is between fully corrected and uncorrected text.
 - **English stemming hurts.** Light stemming lowers English recall@5 on these questions (0.860 →
   0.814), which XQuAD did not show.
 - **Not a headline.** The corpus-wide gap needs the full single-hop set.
+- **The reranked hybrid on this subset stays directional too.** Its EN − AR interval contains zero and
+  McNemar gives p = 1, which is what 43 questions support and not evidence that the gap closes here.
+  The corpus-wide reranked gap, on all 128 questions, is +0.078 [+0.016, +0.141], p = 0.031 (top of
+  this document). Where the two disagree, the subset is the underpowered one.
