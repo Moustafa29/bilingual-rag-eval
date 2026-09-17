@@ -33,6 +33,14 @@ retrievable by asking these questions, and memory's contribution to any RAG answ
 
 `docs/results.md`, `docs/generation.md`.
 
+![English and Arabic recall@5 across the retrieval ladder on the UN corpus](docs/figures/ladder-unpc.png)
+
+Absolute scores, not differences: the shaded band is the gap. Every configuration improves both
+languages and none of them closes the band, including the reranker at the right-hand end. The same plot
+for XQuAD (`docs/figures/ladder-xquad.png`, same script) has both lines meeting at 1.000, which is the
+ceiling problem in one picture. Regenerate either with
+`python scripts/plot_ladder.py --corpus unpc`.
+
 ---
 
 ## The same reranker "closes" the Arabic gap on XQuAD and does not close it here
@@ -216,71 +224,79 @@ together, with the three assumptions behind it, whichever way it lands.
 
 ## What doesn't work
 
-**What the limitations below do not touch:** the retrieval/generation split is measured, not inferred —
-the closed-book control shows the model answers 3.1% of these questions from memory, so the oracle and
-RAG conditions are reading the passages. The XQuAD ceiling result is methodological and holds for any
-saturated benchmark, whatever corpus it is measured on. And the Arabic token cost, the truncation and the
-reversed digit groups are measurements of the data itself, which no choice of model changes. What follows
-limits how far the numbers generalise; it does not put them in doubt.
+**What the limitations do not touch:** the retrieval/generation split is measured, not inferred — the
+closed-book control shows the model answers 3.1% of these questions from memory, so the oracle and RAG
+conditions are reading the passages. The XQuAD ceiling result is methodological and holds for any
+saturated benchmark. And the Arabic token cost, the truncation and the reversed digit groups are
+measurements of the data itself, which no choice of model changes. What follows limits how far the
+numbers generalise; it does not put them in doubt.
 
-**One corpus, one domain, one register.** UN documents from 2002–2013: bureaucratic prose, numbered
-paragraphs, apportionment tables. The Arabic is formal MSA written by professional translators, so
-nothing here transfers to dialect or to natively written Arabic.
-
-**The Arabic side is a translation of the English side.** That is what makes the comparison possible and
-it also makes it easier than reality, so the measured gap is plausibly a lower bound.
+**One corpus, one domain, one register.** UN documents from 2002–2013, in formal MSA written by
+professional translators, with the Arabic translated from the English. Nothing here transfers to dialect
+or to natively written Arabic, and the translation makes the task easier than reality, so the measured
+gap is plausibly a lower bound.
 
 **128 questions, so most intervals are wide.** The reranked gap, +0.078 [+0.016, +0.141], clears zero but
-does not pin the size, and the 43-question numeric subset carries nothing on its own (+0.023
-[−0.093, +0.140], p = 1) and is labelled directional throughout. The set was frozen at 128 for quota
-reasons, not statistical ones.
-
-**One of everything.** One embedding pair, one reranker, one answering model, one judge, one k (5), one
-chunking scheme — no sweeps. Where a model behaves oddly, as e5-base does at en-ar 0.094, the cause is
-**not diagnosed**: prefix handling, normalization and cross-lingual alignment would all produce it.
+does not pin the size, and the 43-question numeric subset carries nothing on its own (+0.023 [−0.093,
++0.140], p = 1). The set was frozen at 128 for quota reasons, not statistical ones.
 
 **Every result is single-hop.** Three multi-hop constructions were measured and stopped, so "retrieval
 caps generation" is shown for one-passage questions — not for the multi-passage case where retrieval
 failures compound.
 
-**The questions are LLM-generated and LLM-verified,** and the swap test that checked them (1 flip in 68)
-detects disagreement between models, not error shared by both. One shared error was found by hand: the
-"more than N" blind spot, which biases the numeric set.
-
-**The judge is the same model as the verifier** (`qwen/qwen3.8-27b` in both roles). The verifier decided
-which questions exist and what their reference answers are; the judge decides whether an answer matches
-that reference, so a systematic error in one is the same error in the other and every internal check
-still passes — including the swap test, which found agreement partly *because* the bias is shared. Exact
-match is independent but broken in the opposite direction (it rejects correct answers 65 times in 240),
-so its disagreement bounds nothing. **Only the human audit of 100 questions and 100 judge decisions
-closes this, and it has not been done**, which makes every accuracy number here conditional on a judge no
-person has checked — including oracle 0.984 / 0.953, which exact match would put at 0.711 / 0.539. The
-$20 budget is held in reserve for a paid judge on a validation subset if the audit calls for one.
-
-**Free-tier quota shaped the design as much as the research question did.** The corpus was cut from
-53,587 to 33,476 chunks, the question set frozen at 128, contamination measured on 60 questions, and the
-plan reduced to one retrieval condition for generation rather than two.
-
-**Two reproducibility holes are not mine to close.** The original verifier was withdrawn mid-project with
-no notice, so those verdicts survive only in the response cache; and the provider's daily token counter
-disagreed with the local ledger by up to 35%, so identical work takes an unpredictable number of days.
-
-**Exact search on 33,476 chunks:** no approximate index, so nothing here speaks to millions of chunks
-where ANN error and index choice matter.
+**The judge is the same model as the question verifier** (`qwen/qwen3.8-27b` in both roles). The verifier
+decided which questions exist and what their reference answers are; the judge decides whether an answer
+matches that reference, so a systematic error in one is the same error in the other and every internal
+check still passes — including the swap test, which found agreement partly *because* the bias is shared.
+Only the human audit of 100 questions and 100 judge decisions closes this, and **it has not been done**,
+so every accuracy number here is conditional on a judge no person has checked.
 
 **Still missing:** the hallucination rate, the second retrieval condition and the human audit. Any
 statement about grounding in Arabic is, at the time of writing, unmeasured.
 
+`docs/limitations.md` has the rest: the undiagnosed e5-base collapse and the one-of-everything problem,
+how the questions inherit passage vocabulary, what free-tier quota decided about the design, the two
+reproducibility holes, and why nothing here speaks to corpora of millions of chunks.
+
 ---
 
-## Data
+## Data and licences
 
-- **UN Parallel Corpus v1.0** subsample via OPUS: 114,047 English–Arabic document pairs → 35,979 eligible
-  → 1,250 selected (1,000 seed + 250 cited) → **33,476 aligned chunks**, each holding the same content in
-  both languages (`docs/corpus.md`).
-- **XQuAD** English and Arabic: 240 passages, 1,190 questions, as a human-written-question control.
-- **Questions:** 128 (88 single-hop + 40 numeric), written from passages, blind-translated, verified,
-  frozen. 43 contain a grouped number and form the numeric subset.
+The code in this repository is MIT-licensed (`LICENSE`). The corpora are not covered by that licence and
+keep their own terms.
+
+**United Nations Parallel Corpus v1.0** — the main corpus, via OPUS. 114,047 English–Arabic document
+pairs → 35,979 eligible → 1,250 selected (1,000 seed + 250 cited) → **33,476 aligned chunks**, each
+holding the same content in both languages (`docs/corpus.md`).
+
+> Source: United Nations. The corpus is provided by the UN without warranty of any kind, and users must
+> acknowledge the United Nations as the source.
+>
+> Ziemski, M., Junczys-Dowmunt, M., & Pouliquen, B. (2016). *The United Nations Parallel Corpus v1.0.*
+> Proceedings of the Tenth International Conference on Language Resources and Evaluation (LREC 2016).
+> https://www.un.org/dgacm/en/content/uncorpus
+
+**XQuAD** — the human-question control: 240 Wikipedia paragraphs and 1,190 questions in English and
+Arabic. Licensed **CC BY-SA 4.0**, as is SQuAD 1.1, from which it is derived.
+
+> Artetxe, M., Ruder, S., & Yogatama, D. (2020). *On the Cross-lingual Transferability of Monolingual
+> Representations.* Proceedings of ACL 2020. https://github.com/google-deepmind/xquad
+>
+> Rajpurkar, P., Zhang, J., Lopyrev, K., & Liang, P. (2016). *SQuAD: 100,000+ Questions for Machine
+> Comprehension of Text.* Proceedings of EMNLP 2016.
+
+**What this repository distributes:** code, documentation, and results files containing metrics and
+identifiers (chunk ids, question ids, scores). Corpus text, questions and answers live under `data/`,
+which is git-ignored and rebuilt locally from the sources above; no corpus text is redistributed here.
+The UN corpus terms carry no non-commercial or no-derivatives clause, which is why it was chosen over
+TED2020 (CC BY-NC-ND 4.0) for a project that publishes derived questions (`docs/design.md` §3.2).
+
+**Questions:** 128 (88 single-hop + 40 numeric), written from UN passages, blind-translated, verified,
+frozen. 43 contain a grouped number and form the numeric subset.
+
+**Models,** all used under their own licences: `intfloat/multilingual-e5-base`, `BAAI/bge-m3`,
+`BAAI/bge-reranker-v2-m3` (Hugging Face), and `openai/gpt-oss-120b`, `openai/gpt-oss-20b`,
+`qwen/qwen3.8-27b` through the Groq API.
 
 ## Repository
 
@@ -293,7 +309,10 @@ statement about grounding in Arabic is, at the time of writing, unmeasured.
 | `docs/corpus.md` | corpus and question-set findings, evaluation fragility, multi-hop attempts |
 | `docs/results.md` | retrieval tables, XQuAD and UN corpus |
 | `docs/generation.md` | generation controls, contamination gate, the pre-registered RAG prediction |
+| `docs/limitations.md` | the full limitations list, of which the README keeps five |
 | `docs/kaggle.md`, `docs/colab.md` | running the GPU steps |
+| `scripts/plot_ladder.py`, `docs/figures/` | the figure above, regenerated from the results file |
+| `LICENSE` | MIT, with the corpus terms it does not cover |
 | `tests/` | 186 tests: analyzers, BM25, fusion, metrics, bootstrap and McNemar, chunking, number correction, and every figure in this README against the results files |
 
 ## Setup
