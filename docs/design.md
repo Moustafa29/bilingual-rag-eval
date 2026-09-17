@@ -556,10 +556,17 @@ from it. On 2026-09-16 Groq refused a call for `openai/gpt-oss-20b` with
 `tokens per day (TPD): Limit 200000, Used 199945`. The ledger recorded **130,548 tokens for that
 model that day**, 65% of what Groq had counted. The previous day's ledger total was 172,991.
 
-- **Not resolved.** The gap is consistent with Groq's day boundary not being the local calendar day
-  the ledger stamps, so its counter still carried part of the previous day. Provider-side accounting
-  of reasoning or system tokens would also produce it. Nothing in the API response distinguishes
-  these, and the ledger records what the API reports in `usage`.
+A second observation on 2026-09-17 separates the two explanations. That day's calls fell inside one
+provider window, and Groq refused at `Used 199293` where the ledger recorded 188,808 for the same
+model and day: **5.3% apart, not 35%.**
+
+- **Most likely the day boundary, not the accounting.** If the provider counted systematically more
+  per call, the two days would disagree by a similar proportion. They do not. The large gap appears
+  when the local calendar day and the provider's window are offset, so the counter still carries
+  calls the ledger has filed under yesterday. The residual 5% is consistent with tokens the `usage`
+  field does not itemise.
+- **Still not resolved from the API.** Nothing in the response states the window, and the ledger
+  records what `usage` reports.
 - **The rule taken from it:** the provider's counter is authoritative for scheduling, and the ledger
   is a lower bound. Daily throughput is not predictable from the ledger, so runs are written to stop
   at the limit (exit code 3) and resume, rather than to fit a day's budget.
@@ -641,7 +648,7 @@ beyond that is flagged as a scale-up decision, not done by default.
 | Stronger paid judge within the $20 cap | Judge `qwen/qwen3.8-27b` (free), **the same model as the question verifier**, stated in every write-up of generation results. The $20 cap is held in reserve. | The human audit of 100 judge decisions is the check on judge quality, and it can be audited, unlike a paid model scoring everything. If the audit shows the free judge is unreliable, the reserve pays for a paid judge on a validation subset, not for scoring everything. |
 | 100 single-hop + 40 numeric questions | **Frozen at 88 single-hop + 40 numeric = 128** | Interval width scales with 1/√n, so the last 12 questions (128 → 140) would narrow intervals by about 4%. They were costing generator quota that answer generation needs. The numeric subset is unaffected. |
 | Generate for every condition; judge support on all | Order: **contamination subset (gate) → closed-book → oracle → RAG with the reranked hybrid → RAG with stemmed BM25**. Support (hallucination) judged on the reranked-hybrid RAG condition only. If the quota or schedule slips, stop after the reranked hybrid and report one retrieval condition, saying so. | The schedule is the binding constraint. The dry run puts the full plan at about 1.3–1.4M answerer tokens (about 7 days at 200K/day) and about 0.9M if stopping after the reranked hybrid (about 4.7 days). Hallucination rate is needed as a measured quantity, not compared across retrievers. |
-| Two RAG conditions, stopping after the first only if the schedule slipped | **Planned for one: RAG with the reranked hybrid. Stemmed BM25 is a bonus, run only if quota allows after everything else is complete.** | Decided 2026-09-16, before the RAG condition ran, not after seeing it fail. Groq's own daily counter ran about 35% ahead of the local ledger (§10), so every schedule estimate built on the ledger was optimistic. A complete result must not depend on the optimistic path. The retrieval-condition comparison is the part that degrades gracefully: one condition still measures the ceiling, it just cannot compare two retrievers. |
+| Two RAG conditions, stopping after the first only if the schedule slipped | **Planned for one: RAG with the reranked hybrid. Stemmed BM25 is a bonus, run only if quota allows after everything else is complete.** | Decided 2026-09-16, before the RAG condition ran, not after seeing it fail. Groq's own daily counter ran up to 35% ahead of the local ledger (§10; 5% on a day whose calls fell inside one provider window), so schedule estimates built on the ledger were optimistic and the daily stop is not predictable from it. A complete result must not depend on the optimistic path. The retrieval-condition comparison is the part that degrades gracefully: one condition still measures the ceiling, it just cannot compare two retrievers. |
 | Family contamination: measure and report | **Gate, fixed before any contamination call:** `gpt-oss-20b` is *markedly ahead* if, in either language, its accuracy exceeds `qwen3.8-27b`'s by at least 10 points **and** the paired 95% bootstrap CI excludes zero, on exact match **or** on judge correctness. Markedly ahead: stop and report before the main run. Otherwise proceed. | Both measures count because the judge is `qwen3.8-27b`, one of the two answerers, and could favour its own answers, which would hide a gpt-oss advantage. Exact match is blind to which model answered. |
 
 **What `multilingual-e5-large` would likely change** (expectation, not measured):
