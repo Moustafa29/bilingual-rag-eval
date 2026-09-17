@@ -1,0 +1,171 @@
+{
+  "openai_gpt-oss-20b/closed_book/ar": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 0,
+      "retrieved_wrong": 0,
+      "missed_correct": 4,
+      "missed_wrong": 124
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.0,
+      "retrieved_wrong": 0.0,
+      "missed_correct": 0.03125,
+      "missed_wrong": 0.96875
+    },
+    "accuracy": 0.03125,
+    "retrieval_rate": 0.0,
+    "abstention_rate": 0.5703125,
+    "abstention_when_retrieved": null,
+    "abstention_when_missed": 0.5703125,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "openai_gpt-oss-20b/closed_book/en": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 0,
+      "retrieved_wrong": 0,
+      "missed_correct": 4,
+      "missed_wrong": 124
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.0,
+      "retrieved_wrong": 0.0,
+      "missed_correct": 0.03125,
+      "missed_wrong": 0.96875
+    },
+    "accuracy": 0.03125,
+    "retrieval_rate": 0.0,
+    "abstention_rate": 0.5390625,
+    "abstention_when_retrieved": null,
+    "abstention_when_missed": 0.5390625,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "openai_gpt-oss-20b/oracle/ar": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 122,
+      "retrieved_wrong": 6,
+      "missed_correct": 0,
+      "missed_wrong": 0
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.953125,
+      "retrieved_wrong": 0.046875,
+      "missed_correct": 0.0,
+      "missed_wrong": 0.0
+    },
+    "accuracy": 0.953125,
+    "retrieval_rate": 1.0,
+    "abstention_rate": 0.0078125,
+    "abstention_when_retrieved": 0.0078125,
+    "abstention_when_missed": null,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "openai_gpt-oss-20b/oracle/en": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 126,
+      "retrieved_wrong": 2,
+      "missed_correct": 0,
+      "missed_wrong": 0
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.984375,
+      "retrieved_wrong": 0.015625,
+      "missed_correct": 0.0,
+      "missed_wrong": 0.0
+    },
+    "accuracy": 0.984375,
+    "retrieval_rate": 1.0,
+    "abstention_rate": 0.0078125,
+    "abstention_when_retrieved": 0.0078125,
+    "abstention_when_missed": null,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "qwen_qwen3.8-27b/oracle/ar": {
+    "n": 60,
+    "cells": {
+      "retrieved_correct": 58,
+      "retrieved_wrong": 2,
+      "missed_correct": 0,
+      "missed_wrong": 0
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.9666666666666667,
+      "retrieved_wrong": 0.03333333333333333,
+      "missed_correct": 0.0,
+      "missed_wrong": 0.0
+    },
+    "accuracy": 0.9666666666666667,
+    "retrieval_rate": 1.0,
+    "abstention_rate": 0.016666666666666666,
+    "abstention_when_retrieved": 0.016666666666666666,
+    "abstention_when_missed": null,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "qwen_qwen3.8-27b/oracle/en": {
+    "n": 60,
+    "cells": {
+      "retrieved_correct": 59,
+      "retrieved_wrong": 1,
+      "missed_correct": 0,
+      "missed_wrong": 0
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.9833333333333333,
+      "retrieved_wrong": 0.016666666666666666,
+      "missed_correct": 0.0,
+      "missed_wrong": 0.0
+    },
+    "accuracy": 0.9833333333333333,
+    "retrieval_rate": 1.0,
+    "abstention_rate": 0.016666666666666666,
+    "abstention_when_retrieved": 0.016666666666666666,
+    "abstention_when_missed": null,
+    "hallucination_rate": null,
+    "hallucination_judged_n": 0
+  },
+  "openai_gpt-oss-20b/closed_book/en_minus_ar_accuracy": {
+    "mean_diff": 0.0,
+    "ci_low": 0.0,
+    "ci_high": 0.0
+  },
+  "openai_gpt-oss-20b/oracle/en_minus_ar_accuracy": {
+    "mean_diff": 0.03125,
+    "ci_low": 0.0,
+    "ci_high": 0.0703125
+  },
+  "qwen_qwen3.8-27b/oracle/en_minus_ar_accuracy": {
+    "mean_diff": 0.016666666666666666,
+    "ci_low": -0.03333333333333333,
+    "ci_high": 0.06666666666666667
+  },
+  "contamination/oracle/ar/openai_gpt-oss-20b_vs_qwen_qwen3.8-27b": {
+    "n": 60,
+    "accuracy_openai_gpt-oss-20b": 0.9666666666666667,
+    "accuracy_qwen_qwen3.8-27b": 0.9666666666666667,
+    "accuracy_difference": {
+      "mean_diff": 0.0,
+      "ci_low": -0.05,
+      "ci_high": 0.05
+    },
+    "agreement_rate": 0.9666666666666667
+  },
+  "contamination/oracle/en/openai_gpt-oss-20b_vs_qwen_qwen3.8-27b": {
+    "n": 60,
+    "accuracy_openai_gpt-oss-20b": 0.9833333333333333,
+    "accuracy_qwen_qwen3.8-27b": 0.9833333333333333,
+    "accuracy_difference": {
+      "mean_diff": 0.0,
+      "ci_low": -0.05,
+      "ci_high": 0.05
+    },
+    "agreement_rate": 0.9666666666666667
+  }
+}

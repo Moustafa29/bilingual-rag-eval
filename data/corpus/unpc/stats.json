@@ -1,0 +1,59 @@
+{
+  "alignment_sha256": "aca39806004e2127047af654d393e31108182ab3130e76fb96e47876ed2ccb52",
+  "pairs": 114047,
+  "eligible_pairs": 35979,
+  "selected_docs": {
+    "seed": 1000,
+    "cited": 250
+  },
+  "dropped_docs": {},
+  "symbol_rule": {
+    "match": 1250
+  },
+  "chunks": 33476,
+  "docs_with_chunks": 1250,
+  "tokens_en": {
+    "p50": 226.0,
+    "p90": 295.0,
+    "p99": 341.0,
+    "max": 1082
+  },
+  "tokens_ar": {
+    "p50": 251.0,
+    "p90": 330.0,
+    "p99": 352.0,
+    "max": 1101
+  },
+  "ar_to_en_token_ratio": {
+    "median": 1.118811881188119,
+    "mean": 1.1393690357841204
+  },
+  "truncated_e5": {
+    "total": 50,
+    "ar_only": 40,
+    "en_only": 0,
+    "both": 10
+  },
+  "truncated_e5_uncorrected": {
+    "total": 50,
+    "ar_only": 40,
+    "en_only": 0,
+    "both": 10
+  },
+  "arabic_number_forms_as_distributed": {
+    "reversed_space": 3598,
+    "not_found": 193,
+    "comma": 175,
+    "joined": 22,
+    "forward_space": 15
+  },
+  "arabic_number_forms_after_correction": {
+    "forward_space": 3612,
+    "not_found": 193,
+    "comma": 175,
+    "joined": 22,
+    "reversed_space": 1
+  },
+  "numbers_corrected": 3600,
+  "chunks_with_corrections": 1604
+}
