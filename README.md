@@ -216,87 +216,60 @@ together, with the three assumptions behind it, whichever way it lands.
 
 ## What doesn't work
 
-_Draft written by Claude at the author's request; the author's own version replaces this._
+**What the limitations below do not touch:** the retrieval/generation split is measured, not inferred —
+the closed-book control shows the model answers 3.1% of these questions from memory, so the oracle and
+RAG conditions are reading the passages. The XQuAD ceiling result is methodological and holds for any
+saturated benchmark, whatever corpus it is measured on. And the Arabic token cost, the truncation and the
+reversed digit groups are measurements of the data itself, which no choice of model changes. What follows
+limits how far the numbers generalise; it does not put them in doubt.
 
-### The flaw this pipeline cannot detect from the inside
+**One corpus, one domain, one register.** UN documents from 2002–2013: bureaucratic prose, numbered
+paragraphs, apportionment tables. The Arabic is formal MSA written by professional translators, so
+nothing here transfers to dialect or to natively written Arabic.
 
-**The judge is the same model as the question verifier**, `qwen/qwen3.8-27b` in both roles, both on the
-free tier. The verifier decided which questions are valid and what their reference answers are; the judge
-decides whether an answer matches that reference. **A systematic error in one is an error in the other,
-in the same direction, and every internal consistency check would still pass.**
+**The Arabic side is a translation of the English side.** That is what makes the comparison possible and
+it also makes it easier than reality, so the measured gap is plausibly a lower bound.
 
-This is not hypothetical here. One shared error is already documented: both the withdrawn verifier and
-its replacement treat "more than 5,000" as a different fact from "5,000", against the prompt's explicit
-instruction, in every case replayed. That bias shaped which numeric questions exist. The same model then
-scores the answers to those questions.
+**128 questions, so most intervals are wide.** The reranked gap, +0.078 [+0.016, +0.141], clears zero but
+does not pin the size, and the 43-question numeric subset carries nothing on its own (+0.023
+[−0.093, +0.140], p = 1) and is labelled directional throughout. The set was frozen at 128 for quota
+reasons, not statistical ones.
 
-**Why the usual checks miss it.** Swapping the verifier found 1 flip in 68 — but a swap detects
-disagreement, not shared error, and these two models agree *because* they share it. Exact match is
-independent of the judge and disagrees with it 65 times out of 240, yet exact match is itself broken in
-the opposite direction, so the disagreement bounds nothing. Nothing inside this pipeline can separate "the
-judge is right" from "the judge is wrong in the way the verifier was wrong".
+**One of everything.** One embedding pair, one reranker, one answering model, one judge, one k (5), one
+chunking scheme — no sweeps. Where a model behaves oddly, as e5-base does at en-ar 0.094, the cause is
+**not diagnosed**: prefix handling, normalization and cross-lingual alignment would all produce it.
 
-**Only an outside measurement closes it,** and it has not been made: the human audit of 100 questions and
-100 judge decisions is not started. Until then every accuracy number here — including the headline
-oracle 0.984 / 0.953 — is conditional on a judge that has never been checked against a person. The $20
-budget is held in reserve for a paid judge on a validation subset if that audit says it is needed.
+**Every result is single-hop.** Three multi-hop constructions were measured and stopped, so "retrieval
+caps generation" is shown for one-passage questions — not for the multi-passage case where retrieval
+failures compound.
 
-### Everything else
+**The questions are LLM-generated and LLM-verified,** and the swap test that checked them (1 flip in 68)
+detects disagreement between models, not error shared by both. One shared error was found by hand: the
+"more than N" blind spot, which biases the numeric set.
 
-**One corpus, one domain, one register.** Everything here is UN documents from 2002–2013: bureaucratic
-prose, numbered paragraphs, apportionment tables, committee names. The Arabic is formal Modern Standard
-Arabic produced by professional UN translators. **Nothing here transfers to dialect**, to user-generated
-text, or to Arabic written natively rather than translated. A retrieval gap measured on translationese is
-a gap on translationese.
-
-**The Arabic side is a translation of the English side.** That is what makes the comparison possible, and
-it also makes it easier than reality: translated Arabic tracks English structure closely, so the measured
-gap is plausibly a lower bound on what natively written Arabic would show.
-
-**128 questions.** Most intervals here are wide. The reranked gap, +0.078 [+0.016, +0.141], clears zero
-but does not pin the size. The 43-question numeric subset cannot carry a conclusion at all — its reranked
-row is +0.023 [−0.093, +0.140], p = 1 — and it is labelled directional throughout. The set was frozen at
-128 because generation quota was needed elsewhere: a budget reason, not a statistical one.
-
-**One of everything in the pipeline.** One embedding pair (`multilingual-e5-base`, `bge-m3`), one reranker
-(`bge-reranker-v2-m3`), one answering model (`gpt-oss-20b`), one judge, one value of k (5), one chunking
-scheme. No sweep over k, no second reranker, no larger e5. Where a single model behaves oddly — e5-base's
-en-ar collapse to 0.094 — the cause is **not diagnosed**: query prefix, normalization, or the model's
-cross-lingual alignment would all produce it, and nothing here distinguishes them.
-
-**Every result is single-hop.** Three multi-hop constructions were measured and stopped. "Retrieval caps
-generation" is demonstrated for questions answerable from one passage. Multi-passage questions are
-exactly where retrieval failures compound, and nothing here measures that.
-
-**The questions are LLM-generated and LLM-verified.** A generator wrote them, a verifier from a different
-family checked them, and the swap test found 1 flip in 68 — but a swap cannot find an error both models
-share, and one such error was found by hand: the "more than N" blind spot, which survived the swap and
-biases the numeric set. The human audit that would bound this properly (100 questions, 100 judge
-decisions) **has not been done yet**, so the error rate of the question set is estimated, not measured.
-
-**Absolute accuracy depends on the judge, and the two available measures disagree by a lot.** Oracle
-accuracy is 0.984 / 0.953 under the judge and 0.711 / 0.539 under exact match. The judge's numbers are
-used throughout because exact match demonstrably rejects correct answers 65 times against zero the other
-way — but no human has validated the judge's own decisions yet.
+**The judge is the same model as the verifier** (`qwen/qwen3.8-27b` in both roles). The verifier decided
+which questions exist and what their reference answers are; the judge decides whether an answer matches
+that reference, so a systematic error in one is the same error in the other and every internal check
+still passes — including the swap test, which found agreement partly *because* the bias is shared. Exact
+match is independent but broken in the opposite direction (it rejects correct answers 65 times in 240),
+so its disagreement bounds nothing. **Only the human audit of 100 questions and 100 judge decisions
+closes this, and it has not been done**, which makes every accuracy number here conditional on a judge no
+person has checked — including oracle 0.984 / 0.953, which exact match would put at 0.711 / 0.539. The
+$20 budget is held in reserve for a paid judge on a validation subset if the audit calls for one.
 
 **Free-tier quota shaped the design as much as the research question did.** The corpus was cut from
-53,587 to 33,476 chunks to fit a free GPU session; the question set was frozen at 128; the plan is **one**
-retrieval condition for generation rather than two; contamination was measured on 60 questions rather
-than 128; and the RAG condition runs across several days in quota-limited slices. A better-resourced
-version of this study would answer some of these questions differently, and would not have to choose.
+53,587 to 33,476 chunks, the question set frozen at 128, contamination measured on 60 questions, and the
+plan reduced to one retrieval condition for generation rather than two.
 
-**Reproducibility has two holes that are not mine to close.** The original verifier model was withdrawn
-mid-project with no notice, so those verdicts exist only in the response cache and cannot be regenerated
-by anyone re-running the pipeline. And the provider's daily token counter disagreed with the local usage
-ledger by up to 35%, so identical work takes an unpredictable number of days: free-tier accounting is not
-a stable base for planning a study.
+**Two reproducibility holes are not mine to close.** The original verifier was withdrawn mid-project with
+no notice, so those verdicts survive only in the response cache; and the provider's daily token counter
+disagreed with the local ledger by up to 35%, so identical work takes an unpredictable number of days.
 
-**Exact search on 33,476 chunks.** No approximate index, no scaling story. What happens at millions of
-chunks, where ANN error and index choice matter, is not addressed here.
+**Exact search on 33,476 chunks:** no approximate index, so nothing here speaks to millions of chunks
+where ANN error and index choice matter.
 
-**Still missing:** the hallucination rate (support judgements not started), the second retrieval
-condition, and the human audit. Any statement about grounding or hallucination in Arabic is, at the time
-of writing, unmeasured.
+**Still missing:** the hallucination rate, the second retrieval condition and the human audit. Any
+statement about grounding in Arabic is, at the time of writing, unmeasured.
 
 ---
 
