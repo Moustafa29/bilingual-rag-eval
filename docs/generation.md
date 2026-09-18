@@ -109,9 +109,16 @@ Predicted EN − AR gap: **+0.102**, which is larger than retrieval's +0.078 bec
 ## Status
 
 The reranked-hybrid RAG condition is running: 256 answer calls, about 396,000 prompt tokens estimated
-(the 3.5 characters-per-token rule runs about 8% high, so expect roughly 365,000). At 200,000 tokens per
-day, and with the provider's counter running ahead of the local ledger (`docs/design.md` §10), it spans
-more than one day and resumes at each limit.
+(the 3.5 characters-per-token rule runs about 8% high, so expect roughly 365,000). The free tier refills
+at about 134 tokens per minute rather than resetting daily (`docs/design.md` §10), so the run stops at
+the limit and resumes on a timer (`scripts/drain_quota.ps1`). The English half is answered; Arabic is
+under way. Judging runs alongside, on answers that are already final.
+
+**No RAG number is reported until all 256 answers exist and have been judged.** Answers already written
+never change, so judging them early wastes nothing — but a partially answered condition has a different
+retrieval-success rate from the finished one, and reporting it would be reporting a different experiment.
+While the condition is incomplete the scorer writes to `--out data/results/unpc/partial_generation_judge.json`,
+so the committed report holds only complete conditions.
 
 Support judgements (hallucination rate) are judged on this condition only. The stemmed-BM25 RAG
 condition is a bonus, run only if quota allows once this is complete.

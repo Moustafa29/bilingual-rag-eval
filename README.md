@@ -209,7 +209,7 @@ looser rules would have produced questions and no finding.
 | Corpus and question set | complete: 1,250 documents, 33,476 chunks, 128 questions (88 single-hop + 40 numeric), frozen |
 | Retrieval, XQuAD and UN corpus | complete: 8 configurations, both languages, both corpus versions |
 | Generation: closed-book and oracle | complete and judged, n = 128 per language |
-| Generation: RAG with the reranked hybrid | **in progress — 57 of 256 answers**, resuming at each daily quota limit |
+| Generation: RAG with the reranked hybrid | **in progress** — English answered, Arabic under way; judged as answers land |
 | Hallucination / support judgements | not started; judged on the RAG condition only |
 | RAG with stemmed BM25 (a second retrieval condition) | a bonus, only if quota allows |
 | Human audit: 100 questions + 100 judge decisions | not started |
