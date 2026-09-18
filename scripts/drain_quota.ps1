@@ -2,6 +2,10 @@
 #
 #   powershell -NoProfile -File scripts\drain_quota.ps1
 #   powershell -NoProfile -File scripts\drain_quota.ps1 -Conditions "rag:bm25-light" -SleepSeconds 900
+#   powershell -NoProfile -File scripts\drain_quota.ps1 -Script scripts/score_generation.py `
+#       -ScriptArgs "--corpus unpc --conditions rag_x --correctness judge --support --out data/results/tmp.json"
+#
+# -ScriptArgs replaces the default generation arguments, so the same loop drains the judge's quota.
 #
 # Groq's free tier is a rolling window that refills continuously at about 134 tokens per minute
 # (docs/design.md, section 10), so a run stops at the limit (exit code 3) with most of its work still to
@@ -14,17 +18,22 @@
 param(
     [string]$Conditions = "rag:rerank_hybrid_bm25-light__bge-m3",
     [string]$Corpus = "unpc",
+    [string]$Script = "scripts/run_generation.py",
+    [string]$ScriptArgs = "",
+    [string]$Log = "data/drain_quota.log",
     [int]$Attempts = 120,
     [int]$SleepSeconds = 1800
 )
 
 Set-Location (Join-Path $PSScriptRoot "..")
-$log = "data/drain_quota.log"
-"=== $(Get-Date -Format 'yyyy-MM-dd HH:mm') starting: $Conditions, up to $Attempts attempts every $SleepSeconds s ===" |
+$log = $Log
+if (-not $ScriptArgs) { $ScriptArgs = "--corpus $Corpus --conditions $Conditions" }
+$arguments = $ScriptArgs -split ' +'
+"=== $(Get-Date -Format 'yyyy-MM-dd HH:mm') starting: $Script $ScriptArgs, up to $Attempts attempts every $SleepSeconds s ===" |
     Out-File -Append -Encoding utf8 $log
 
 for ($i = 1; $i -le $Attempts; $i++) {
-    $output = & .\.venv\Scripts\python.exe scripts/run_generation.py --corpus $Corpus --conditions $Conditions 2>&1
+    $output = & .\.venv\Scripts\python.exe $Script @arguments 2>&1
     $code = $LASTEXITCODE
     $tail = ($output | Select-Object -Last 2) -join " | "
     "$(Get-Date -Format 'HH:mm') attempt $i exit $code : $tail" | Out-File -Append -Encoding utf8 $log

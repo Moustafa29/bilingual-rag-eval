@@ -39,7 +39,7 @@ from rageval.eval.answers import answer_scores
 from rageval.eval.attribution import attribution_table, decomposition
 from rageval.eval.corpora import QUESTION_FILES
 from rageval.eval.stats import paired_bootstrap_ci
-from rageval.io import load_config, load_dotenv, read_jsonl, write_jsonl
+from rageval.io import load_config, load_dotenv, read_jsonl, read_jsonl_subset, write_jsonl
 from rageval.llm.client import ChatClient, DailyLimitReached, DiskCache, cache_key
 from rageval.questions.builder import LANG_NAMES, Prompts, format_passages
 from rageval.questions.checks import is_true, parse_json_object
@@ -54,6 +54,9 @@ def main() -> None:
     parser.add_argument("--support", action="store_true")
     parser.add_argument("--judge-dry-run", action="store_true")
     parser.add_argument("--seed", type=int, default=20260915)
+    parser.add_argument("--out", help="where to write the report; default data/results/<corpus>/generation_<correctness>.json. "
+                                      "Point it elsewhere when scoring a condition whose answers are not all generated yet, "
+                                      "so the committed report never holds partial numbers.")
     args = parser.parse_args()
     load_dotenv()
     cfg = load_config(args.config)
@@ -77,9 +80,15 @@ def main() -> None:
         judge = ChatClient.from_config(judge_cfg, DiskCache(data / "llm_cache"), data / "llm_usage.jsonl")
 
     loaded = {p: read_jsonl(p) for p in files}
+    # Only the passages these answers were given, one language at a time: holding both languages of the
+    # whole corpus costs 170 MB to read a few hundred chunks (see scripts/run_generation.py).
+    needed: dict[tuple[str, str], set[str]] = {}
+    for path, rows in loaded.items():
+        for r in rows:
+            needed.setdefault((r["context_corpus"], r["lang"]), set()).update(r["context_ids"])
     contexts = {
-        corpus: {c["chunk_id"]: c for c in read_jsonl(data / "corpus" / corpus / "chunks.jsonl")}
-        for corpus in {r["context_corpus"] for rows in loaded.values() for r in rows}
+        (corpus, lang): read_jsonl_subset(data / "corpus" / corpus / "chunks.jsonl", ids, "chunk_id", lang)
+        for (corpus, lang), ids in needed.items()
     }
 
     def judge_prompts(row: dict) -> tuple[str | None, str | None]:
@@ -88,8 +97,8 @@ def main() -> None:
         if args.correctness == "judge":
             correctness = prompts.render("judge_correctness", lang_name=LANG_NAMES[lang], question=q["question"][lang], reference=q["answer"][lang], candidate=row["answer"])
         if args.support and row["context_ids"] and not row["abstained"]:
-            chunks = contexts[row["context_corpus"]]
-            support = prompts.render("judge_support", question=q["question"][lang], answer=row["answer"], passages=format_passages([chunks[c][lang] for c in row["context_ids"]]))
+            chunks = contexts[(row["context_corpus"], lang)]
+            support = prompts.render("judge_support", question=q["question"][lang], answer=row["answer"], passages=format_passages([chunks[c] for c in row["context_ids"]]))
         return correctness, support
 
     if args.judge_dry_run:
@@ -176,9 +185,9 @@ def main() -> None:
                 "agreement_rate": sum(rows_a[q]["correct"] == rows_b[q]["correct"] for q in shared) / len(shared),
             }
 
-    out = data / "results" / args.corpus
-    out.mkdir(parents=True, exist_ok=True)
-    (out / f"generation_{args.correctness}.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    report_path = Path(args.out) if args.out else data / "results" / args.corpus / f"generation_{args.correctness}.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
 
 
