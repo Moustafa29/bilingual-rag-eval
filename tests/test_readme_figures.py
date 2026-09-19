@@ -61,6 +61,15 @@ FIGURES = [
     ("oracle exact match EN", "unpc/generation_exact_match.json", ("openai_gpt-oss-20b/oracle/en", "accuracy"), "{:.3f}", "0.711", "docs/limitations.md"),
     ("oracle exact match AR", "unpc/generation_exact_match.json", ("openai_gpt-oss-20b/oracle/ar", "accuracy"), "{:.3f}", "0.539", "docs/limitations.md"),
     ("oracle exact-match EN-AR", "unpc/generation_exact_match.json", ("openai_gpt-oss-20b/oracle/en_minus_ar_accuracy", "mean_diff"), "{:.3f}", "+0.172", "README.md"),
+    # The RAG condition
+    ("RAG accuracy EN", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en", "accuracy"), "{:.3f}", "0.867", "README.md"),
+    ("RAG accuracy AR", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/ar", "accuracy"), "{:.3f}", "0.836", "README.md"),
+    ("RAG EN-AR", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en_minus_ar_accuracy", "mean_diff"), "{:.3f}", "+0.031", "README.md"),
+    ("hallucination EN", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en", "hallucination_rate"), "{:.3f}", "0.016", "README.md"),
+    ("hallucination AR", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/ar", "hallucination_rate"), "{:.3f}", "0.048", "README.md"),
+    ("retrieval cost EN", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en/decomposition", "retrieval_cost"), "{:.3f}", "0.117", "README.md"),
+    ("generation cost EN", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en/decomposition", "generation_cost"), "{:.3f}", "0.016", "README.md"),
+    ("generation cost AR", "unpc/generation_judge.json", ("openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/ar/decomposition", "generation_cost"), "{:.3f}", "0.047", "README.md"),
 ]
 
 # Corpus counts, written with thousands separators in the README.

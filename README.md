@@ -1,9 +1,11 @@
 # Bilingual RAG: measuring the retrieval ceiling in Arabic and English
 
-Retrieval caps generation, and the cap is lower in Arabic. This measures both halves on the same
-documents and the same questions, differing only in language: a 33,476-chunk subsample of the UN
-Parallel Corpus (English–Arabic, sentence-aligned), 128 questions, eight retrieval configurations, and a
-generation stage with controls that separate what retrieval costs from what generation costs.
+Arabic retrieval on this corpus is measurably worse than English. The end-to-end answer quality is
+not. This measures both halves on the same documents and the same questions, differing only in
+language — a 33,476-chunk subsample of the UN Parallel Corpus (English–Arabic, sentence-aligned), 128
+questions, eight retrieval configurations, and a generation stage with controls that separate what
+retrieval costs from what generation costs — and reports where the expected relationship between them
+broke.
 
 Every number below comes from a committed results file, with the command that produced it. They are not
 transcribed by hand: `tests/test_readme_figures.py` reads each figure out of the results JSON and fails if
@@ -11,25 +13,65 @@ this README disagrees with it, so `pytest` catches a stale number the way it cat
 
 ---
 
-## The result
+## A prediction, made before the run, that missed in both directions
 
-**The Arabic penalty is in retrieval, not in generation.** Same questions, same documents, best
-retrieval configuration in the project (RRF over stemmed BM25 and `bge-m3`, reranked by
-`bge-reranker-v2-m3` over the top 50):
+Before any RAG answer existed, the expected accuracy was committed to the repository
+(`docs/generation.md`, and this file's git history): retrieval's recall@5 times the oracle accuracy,
+plus the closed-book rate on whatever retrieval misses.
 
-| Stage | What it measures | English − Arabic | 95% CI |
+| | Predicted | Measured | Miss |
 |---|---|---|---|
-| **Retrieval** (recall@5) | finding the passage | **+0.078** | [+0.016, +0.141], McNemar p = 0.031 |
-| **Generation, retrieval held perfect** (oracle accuracy) | using the passage | **+0.031** | [+0.000, +0.070] |
+| English | 0.925 | **0.867** | **−0.058** |
+| Arabic | 0.823 | **0.836** | +0.012 |
+| English − Arabic | +0.102 | **+0.031** [−0.031, +0.094] | −0.071 |
 
-Give the model the right passage and Arabic is nearly English: 0.953 against 0.984. Make it find the
-passage first and the gap more than doubles.
+Both misses land on assumptions written down in advance, which is what makes them readable:
 
-**The attribution is not an assumption.** Closed-book accuracy — the same questions with no passages at
-all — is **0.031 in both languages**, 4 questions of 128, with the model abstaining on over half. UN
-documents are public and plausibly in any web-scale training set, so recitation was a real risk to this
-design. It did not materialise: whatever this corpus contributed to pretraining, none of it is
-retrievable by asking these questions, and memory's contribution to any RAG answer is capped at 3.1%.
+- **English fell short because retrieval success is not independent of answer correctness.** With the
+  gold passage in context, the model scores 0.925 under RAG against **0.984** under the oracle — the
+  same passage, the same k = 5. What changed is the company it keeps.
+- **Arabic overshot because a missed gold passage does not mean a closed-book answer.** Arabic answered
+  3 of 18 such questions correctly (0.167 against a closed-book 0.031); English answered 0 of 8.
+
+The two point in opposite directions and partly cancel, which is why the end-to-end gap is **smaller**
+than the retrieval gap it was supposed to inherit.
+
+## What the numbers say
+
+**Retrieval costs both languages the same 0.117 of absolute accuracy — even though Arabic's recall@5 is
+8 points worse.**
+
+| Language | recall@5 | Oracle accuracy | RAG accuracy | Retrieval cost | Generation cost |
+|---|---|---|---|---|---|
+| English | 0.938 | 0.984 | 0.867 | **0.117** | 0.016 |
+| Arabic | 0.859 | 0.953 | 0.836 | **0.117** | 0.047 |
+
+Arabic loses more passages and pays the same price for it, because some of what it loses is recovered
+anyway: the corpus contains near-duplicate chunks, and 3 of Arabic's 18 missed-gold questions were
+answered correctly from a passage outside the labelled relevance group. English recovered none of its 8.
+
+**Where Arabic is clearly worse is grounding.** Answers judged unsupported by the passages actually
+given:
+
+| Language | Unsupported (hallucination) rate | n judged |
+|---|---|---|
+| English | 0.016 | 126 |
+| Arabic | **0.048** | 126 |
+
+Three times the rate, on the same questions with the same k. Six unsupported Arabic answers against two
+English — small counts, no interval, and the one result here that points cleanly at a language
+difference in generation rather than retrieval.
+
+**So the honest summary is narrower than "the penalty is in retrieval, not generation".** The retrieval
+penalty is real and measured (+0.078 recall@5, McNemar p = 0.031). It does not propagate one-for-one
+into answers: end-to-end the gap is +0.031 with an interval crossing zero at n = 128. The mechanism for
+that non-propagation is measured, not assumed — it is the two misses above.
+
+**The attribution rests on a control, not an assumption.** Closed-book accuracy — the same questions
+with no passages at all — is **0.031 in both languages**, 4 questions of 128, with the model abstaining
+on over half. UN documents are public and plausibly in any web-scale training set, so recitation was a
+real risk to this design. It did not materialise, and memory's contribution to any RAG answer is capped
+at 3.1%.
 
 `docs/results.md`, `docs/generation.md`.
 
@@ -67,6 +109,40 @@ points apart on XQuAD (en-ar recall@1 0.823 against 0.854) and look interchangea
 e5-base collapses to **0.094** where bge-m3 holds **0.367**. The failure is directional — e5-base is fine
 at ar-ar (0.398) and ar-en (0.328); only English queries against Arabic passages collapse. Choosing a
 cross-lingual retriever on XQuAD would have hidden that completely.
+
+---
+
+## An oracle built from random distractors overstates the generation ceiling
+
+The oracle condition — gold passage plus distractors, k = 5 — is how this kind of evaluation separates
+"the retriever failed" from "the model failed". Its distractors here are drawn at random from the
+corpus, which is the usual construction. The RAG condition gives the model the same k = 5 with the same
+gold passage present, but the other four are whatever the reranker put there.
+
+| Language | Oracle accuracy | RAG accuracy when the gold passage is present | Overstatement |
+|---|---|---|---|
+| English | 0.984 | 0.925 | **−0.059** |
+| Arabic | 0.953 | 0.945 | −0.008 |
+
+**In English the oracle overstates the ceiling by about six points.** The reranked hybrid fills a
+context with hard negatives: chunks a cross-encoder scored as closest to the question, usually the same
+committee, the same year, often the same document series, with the same shape of number in them. A
+random distractor is not a competitor; a top-ranked near-miss is. The oracle condition, by construction,
+never contains one.
+
+**The effect is not symmetric, and this project cannot say why.** Arabic loses 0.008 on the same
+comparison, which is nothing. Both figures are single measurements over the questions retrieval got
+right (120 English, 110 Arabic), and the two languages' retrieved sets are not the same questions, so
+selection differences alone could produce it.
+
+**What to do about it, for anyone building this kind of evaluation:** report the oracle condition as
+what it is — an upper bound under easy distractors — or build it from the retriever's own top-k with the
+gold passage substituted in. A ceiling measured with random distractors will flatter every system
+measured against it, and it will flatter the strongest retriever most, because that is the one whose
+distractors are hardest.
+
+This is the second methodological finding in this project with the same shape as the first: a control
+condition that looks neutral quietly decides the answer. The XQuAD ceiling above is the other.
 
 ---
 

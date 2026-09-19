@@ -81,8 +81,8 @@ Complete: 256 answers, all judged, support judged on this condition only.
 
 | Language | Accuracy | Gold passage in context | Abstention | Unsupported answers (hallucination) |
 |---|---|---|---|---|
-| English | **0.867** | 0.938 | 0.016 | 0.015 (n = 126) |
-| Arabic | **0.836** | 0.859 | 0.016 | **0.047** (n = 126) |
+| English | **0.867** | 0.938 | 0.016 | 0.016 (n = 126) |
+| Arabic | **0.836** | 0.859 | 0.016 | **0.048** (n = 126) |
 
 EN − AR accuracy: **+0.031 [−0.031, +0.094]** — the interval includes zero.
 
@@ -154,7 +154,7 @@ part of it, and that a ceiling computed as recall × oracle overstates what RAG 
 understates it in Arabic.
 
 **Hallucination is the one place Arabic is clearly worse.** Answers judged unsupported by the passages
-given: 0.047 in Arabic against 0.015 in English, both over 126 judged answers. Six unsupported Arabic
+given: 0.048 in Arabic against 0.016 in English, both over 126 judged answers. Six unsupported Arabic
 answers against two English. The numbers are small and no interval is reported for them here.
 
 ## Pre-registered prediction for the RAG condition
