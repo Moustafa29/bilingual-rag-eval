@@ -52,6 +52,8 @@ def main() -> None:
     parser.add_argument("--correctness", choices=["exact_match", "judge"], default="exact_match")
     parser.add_argument("--conditions", help="comma-separated conditions to score; default: every condition on disk")
     parser.add_argument("--support", action="store_true")
+    parser.add_argument("--support-conditions", help="restrict support judgements to these conditions; default: every condition scored. "
+                                                     "Support prompts carry k passages each, so they are judged on one retrieval condition.")
     parser.add_argument("--judge-dry-run", action="store_true")
     parser.add_argument("--seed", type=int, default=20260915)
     parser.add_argument("--out", help="where to write the report; default data/results/<corpus>/generation_<correctness>.json. "
@@ -91,12 +93,16 @@ def main() -> None:
         for (corpus, lang), ids in needed.items()
     }
 
+    support_conditions = {c.strip() for c in (args.support_conditions or "").split(",") if c.strip()}
+
     def judge_prompts(row: dict) -> tuple[str | None, str | None]:
         q, lang = questions[row["qid"]], row["lang"]
         correctness = support = None
         if args.correctness == "judge":
             correctness = prompts.render("judge_correctness", lang_name=LANG_NAMES[lang], question=q["question"][lang], reference=q["answer"][lang], candidate=row["answer"])
-        if args.support and row["context_ids"] and not row["abstained"]:
+        support_wanted = args.support and (args.support_conditions is None or row["condition"].split(":")[0] in support_conditions
+                                           or row["condition"] in support_conditions)
+        if support_wanted and row["context_ids"] and not row["abstained"]:
             chunks = contexts[(row["context_corpus"], lang)]
             support = prompts.render("judge_support", question=q["question"][lang], answer=row["answer"], passages=format_passages([chunks[c] for c in row["context_ids"]]))
         return correctness, support

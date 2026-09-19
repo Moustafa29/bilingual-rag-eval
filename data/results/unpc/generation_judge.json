@@ -87,6 +87,50 @@
     "hallucination_rate": null,
     "hallucination_judged_n": 0
   },
+  "openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/ar": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 104,
+      "retrieved_wrong": 6,
+      "missed_correct": 3,
+      "missed_wrong": 15
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.8125,
+      "retrieved_wrong": 0.046875,
+      "missed_correct": 0.0234375,
+      "missed_wrong": 0.1171875
+    },
+    "accuracy": 0.8359375,
+    "retrieval_rate": 0.859375,
+    "abstention_rate": 0.015625,
+    "abstention_when_retrieved": 0.0,
+    "abstention_when_missed": 0.1111111111111111,
+    "hallucination_rate": 0.047619047619047616,
+    "hallucination_judged_n": 126
+  },
+  "openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en": {
+    "n": 128,
+    "cells": {
+      "retrieved_correct": 111,
+      "retrieved_wrong": 9,
+      "missed_correct": 0,
+      "missed_wrong": 8
+    },
+    "cell_shares": {
+      "retrieved_correct": 0.8671875,
+      "retrieved_wrong": 0.0703125,
+      "missed_correct": 0.0,
+      "missed_wrong": 0.0625
+    },
+    "accuracy": 0.8671875,
+    "retrieval_rate": 0.9375,
+    "abstention_rate": 0.015625,
+    "abstention_when_retrieved": 0.0,
+    "abstention_when_missed": 0.25,
+    "hallucination_rate": 0.015873015873015872,
+    "hallucination_judged_n": 126
+  },
   "qwen_qwen3.8-27b/oracle/ar": {
     "n": 60,
     "cells": {
@@ -140,6 +184,19 @@
     "mean_diff": 0.03125,
     "ci_low": 0.0,
     "ci_high": 0.0703125
+  },
+  "openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/ar/decomposition": {
+    "retrieval_cost": 0.1171875,
+    "generation_cost": 0.046875
+  },
+  "openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en/decomposition": {
+    "retrieval_cost": 0.1171875,
+    "generation_cost": 0.015625
+  },
+  "openai_gpt-oss-20b/rag_rerank_hybrid_bm25-light__bge-m3/en_minus_ar_accuracy": {
+    "mean_diff": 0.03125,
+    "ci_low": -0.03125,
+    "ci_high": 0.09375
   },
   "qwen_qwen3.8-27b/oracle/en_minus_ar_accuracy": {
     "mean_diff": 0.016666666666666666,

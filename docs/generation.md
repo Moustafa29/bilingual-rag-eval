@@ -75,6 +75,88 @@ and behind on exact match, so the family effect is not driving the results and t
 Qwen leading on exact match by more than 10 points is not what the rule covers; the rule was written
 one-sided before any contamination call and was not reinterpreted afterwards.
 
+## The RAG condition: reranked hybrid, k = 5 (n = 128 per language)
+
+Complete: 256 answers, all judged, support judged on this condition only.
+
+| Language | Accuracy | Gold passage in context | Abstention | Unsupported answers (hallucination) |
+|---|---|---|---|---|
+| English | **0.867** | 0.938 | 0.016 | 0.015 (n = 126) |
+| Arabic | **0.836** | 0.859 | 0.016 | **0.047** (n = 126) |
+
+EN − AR accuracy: **+0.031 [−0.031, +0.094]** — the interval includes zero.
+
+### The four cells
+
+| Language | Retrieved & correct | Retrieved & wrong | Missed & correct | Missed & wrong |
+|---|---|---|---|---|
+| English | 111 | 9 | 0 | 8 |
+| Arabic | 104 | 6 | 3 | 15 |
+
+The retrieval rates (0.938 and 0.859) reproduce the retrieval run's recall@5 exactly, which is the check
+that these contexts really are the reranked-hybrid run.
+
+| Language | Accuracy when the gold passage is present | when it is missing | Oracle | Closed-book |
+|---|---|---|---|---|
+| English | 111/120 = 0.925 | 0/8 = 0.000 | 0.984 | 0.031 |
+| Arabic | 104/110 = 0.945 | 3/18 = 0.167 | 0.953 | 0.031 |
+
+### Cost decomposition
+
+| Language | Retrieval cost (oracle − RAG) | Generation cost (1 − oracle) |
+|---|---|---|
+| English | 0.117 | 0.016 |
+| Arabic | 0.117 | 0.047 |
+
+**Retrieval costs both languages the same 0.117 in absolute accuracy.** What differs is the generation
+cost, which is three times larger in Arabic (0.047 against 0.016) — and that is the same +0.031 oracle
+gap seen from the other side.
+
+## Prediction against outcome
+
+The prediction was committed before any RAG answer existed (below, and in this file's git history).
+
+| Language | Predicted | Measured | Miss |
+|---|---|---|---|
+| English | 0.925 | 0.867 | **−0.058** |
+| Arabic | 0.823 | 0.836 | +0.012 |
+| EN − AR gap | +0.102 | +0.031 | −0.071 |
+
+**The prediction missed, in both directions, and the two misses have different causes — each one an
+assumption written down beforehand.**
+
+**English fell short: assumption 1 was wrong.** Whether retrieval succeeds is *not* independent of
+whether the answer would be right. With the gold passage in context, the model scores 0.925 in the RAG
+condition against 0.984 in the oracle condition — the same passage, the same k, six points apart. The
+difference is what surrounds it: the oracle condition fills the context with passages drawn at random,
+while the reranked hybrid fills it with the four chunks a cross-encoder ranked closest to the question.
+Those are near-misses on the same topic, often the same committee and the same year, and they compete
+with the gold passage in a way random distractors do not. **An oracle condition built from random
+distractors overstates the generation ceiling.**
+
+**Arabic overshot: assumption 2 was wrong.** A question whose gold passage is missed is not answered at
+the closed-book rate. Arabic answered 3 of 18 such questions correctly (0.167) against a closed-book
+rate of 0.031; English answered 0 of 8. The corpus contains near-duplicate chunks — the same figure
+reported in a later session document, the same paragraph in an annex — so the fact is sometimes present
+without the labelled gold chunk being there. The relevance groups already collapse near-duplicates for
+*retrieval* scoring; this is the same phenomenon appearing in generation, where a passage outside the
+group can still carry the fact.
+
+**The net effect is that the end-to-end language gap is smaller than the retrieval gap**, +0.031 against
++0.078, and not distinguishable from zero at n = 128. The two errors point in opposite directions and
+partly cancel: English loses accuracy on questions retrieval got right, Arabic gains accuracy on
+questions retrieval got wrong.
+
+**What this does not say.** It does not say the Arabic retrieval penalty is harmless. Retrieval still
+costs Arabic 0.117 of absolute accuracy, and Arabic's 18 missed questions against English's 8 is the
+reason its "missed" column is twice as large. It says that at k = 5 on this corpus, two effects offset
+part of it, and that a ceiling computed as recall × oracle overstates what RAG achieves in English and
+understates it in Arabic.
+
+**Hallucination is the one place Arabic is clearly worse.** Answers judged unsupported by the passages
+given: 0.047 in Arabic against 0.015 in English, both over 126 judged answers. Six unsupported Arabic
+answers against two English. The numbers are small and no interval is reported for them here.
+
 ## Pre-registered prediction for the RAG condition
 
 **Written before the RAG answers existed.** The git history of this file is the record.
